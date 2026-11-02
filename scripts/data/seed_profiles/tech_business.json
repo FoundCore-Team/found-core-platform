@@ -1,0 +1,206 @@
+[
+  {
+    "key": 43, "first_name": "Анфиса", "last_name": "Р.", "username": "seed_anfisa_marketing", "last_active_days_ago": 2,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "marketing", "country_code": "RU", "timezone": "Europe/Moscow",
+        "extra_attributes": {"specialization": "performance", "workload": "part_time", "format": "remote"},
+        "tags": ["Performance", "Analytics", "Growth", "Email Marketing", "SEO"],
+        "bio": "Performance-маркетолог, шесть лет в платных каналах: контекст, таргет, партнёрские сети. Вела рекламный бюджет до пяти миллионов в месяц в e-commerce и онлайн-образовании. Привыкла считать окупаемость каждого канала и вовремя выключать то, что не приносит денег.",
+        "goals": "Ищу стартап, которому нужна системная реклама и сквозная аналитика, на частичной занятости или за долю. Могу построить воронку, настроить отчёты и обучить первого сотрудника. Хочу работать с продуктом, который сам по себе понятен людям и не требует чудес в рекламе."
+      },
+      {
+        "category": "edu_growth", "role": "language_buddy", "country_code": "RU", "timezone": "Europe/Moscow",
+        "extra_attributes": {"level": "b1", "format": "calls", "frequency": "weekly"},
+        "tags": ["German", "Speaking Club", "Business English", "English", "IELTS"],
+        "bio": "Учу немецкий для переезда и работы, сейчас на уровне B1. Хорошо читаю, но стесняюсь говорить. Ищу партнёра для спокойной разговорной практики без экзаменационного напряжения. Могу в обмен помогать с английским: уверенно говорю на нём в рабочих ситуациях.",
+        "goals": "Хочу созваниваться раз в неделю на сорок минут, половину времени говорить по-немецки и половину по-английски. Подойдёт человек примерно моего уровня или чуть выше. Договариваться о темах заранее: от новостей и путешествий до рабочих ситуаций и собеседований."
+      }
+    ]
+  },
+  {
+    "key": 44, "first_name": "Егор", "last_name": "С.", "username": "seed_egor_content", "last_active_days_ago": 4,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "marketing", "country_code": "BY", "timezone": "Europe/Minsk",
+        "skip_embedding": true,
+        "extra_attributes": {"specialization": "content_smm", "workload": "full_time", "format": "remote"},
+        "tags": ["Content", "SMM", "PR", "Email Marketing", "Growth"],
+        "bio": "Контент-маркетолог и редактор, семь лет пишу для технологических компаний: статьи в блоги, рассылки, кейсы, тексты для лендингов. Знаю, как объяснить сложный продукт простыми словами, и умею находить темы, которые читают люди, а не только поисковые роботы.",
+        "goals": "Хочу присоединиться к продуктовой команде как ответственный за контент и коммуникацию. Интересны технологические и образовательные стартапы, где можно выстроить редакцию с нуля. Готов вести блог, соцсети и рассылки, а также привлекать экспертов к совместным публикациям."
+      }
+    ]
+  },
+  {
+    "key": 45, "first_name": "Злата", "last_name": "К.", "username": "seed_zlata_seo", "last_active_days_ago": 2,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "marketing", "country_code": "GE", "timezone": "Asia/Tbilisi",
+        "extra_attributes": {"specialization": "seo_pr", "workload": "part_time", "format": "remote"},
+        "tags": ["SEO", "Content", "Analytics", "PR", "Growth"],
+        "pending_tags": ["Link Building"],
+        "bio": "SEO-специалист, пять лет занимаюсь органическим трафиком для интернет-магазинов и сервисов. Провожу технические аудиты, собираю семантику и выстраиваю ссылочную стратегию. Умею объяснять разработчикам, какие изменения на сайте действительно скажутся на позициях в поиске.",
+        "goals": "Ищу проект, где органический трафик может стать основным каналом роста. Готова выстроить стратегию и сопровождать её на частичной занятости. Хорошо подойдут сервисы с большим количеством страниц: каталоги, маркетплейсы и базы знаний, где поиск решает судьбу продукта."
+      }
+    ]
+  },
+  {
+    "key": 46, "first_name": "Илья", "last_name": "В.", "username": "seed_ilya_growth", "last_active_days_ago": 6,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "marketing", "country_code": "ES", "timezone": "Europe/Madrid",
+        "extra_attributes": {"specialization": "growth_hacking", "workload": "full_time", "format": "remote"},
+        "tags": ["Growth", "Analytics", "A/B Testing", "Email Marketing", "Performance"],
+        "bio": "Growth-маркетолог: ищу быстрые способы привлечь и удержать пользователей. Запускал реферальные программы, онбординг-цепочки и эксперименты с ценой для подписочных сервисов. Работаю с продуктовой аналитикой напрямую, пишу SQL-запросы и сам строю дашборды для команды.",
+        "goals": "Хочу присоединиться к раннему продукту, где можно экспериментировать быстро и без лишних согласований. Рассматриваю роль головы growth или сооснователя. Важна команда, которая готова принимать решения по данным и признавать, что большинство гипотез не подтверждается."
+      }
+    ]
+  },
+  {
+    "key": 47, "first_name": "Карина", "last_name": "Д.", "username": "seed_karina_smm", "last_active_days_ago": 24,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "marketing", "country_code": "RU", "timezone": "Europe/Moscow",
+        "status": "paused",
+        "extra_attributes": {"specialization": "content_smm", "workload": "part_time", "format": "hybrid"},
+        "tags": ["SMM", "Content", "PR", "Email Marketing", "Analytics"],
+        "bio": "SMM-менеджер, четыре года веду соцсети брендов в индустрии красоты и образования. Придумываю рубрики, снимаю короткие видео, организую совместные проекты с блогерами. Умею собирать контент-план, считать охваты и вовремя реагировать на негатив в комментариях.",
+        "goals": "Анкета на паузе, потому что я временно ушла в декрет. Вернусь к поиску проектов через несколько месяцев. Хочу найти команду, где ценят удалённую гибкую работу и можно строить сообщество вокруг продукта, а не только раздавать скидки и гонять рекламу."
+      }
+    ]
+  },
+  {
+    "key": 48, "first_name": "Матвей", "last_name": "О.", "username": "seed_matvey_performance", "last_active_days_ago": 31,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "marketing", "country_code": "KZ", "timezone": "Asia/Almaty",
+        "extra_attributes": {"specialization": "performance", "workload": "full_time", "format": "hybrid"},
+        "tags": ["Performance", "Analytics", "SEO", "Growth", "Email Marketing"],
+        "bio": "Специалист по платному трафику, три года в агентстве и ещё год в продуктовой компании. Настраиваю рекламу в поиске и соцсетях, собираю аналитику в связке с CRM, считаю стоимость лида и окупаемость. Хочу перейти из агентства в команду одного продукта.",
+        "goals": "Ищу позицию маркетолога в компании с понятным продуктом и бюджетом на эксперименты. Готов учиться у более опытных коллег, брать ответственность за канал и показывать прозрачные отчёты. Особенно интересны финансовые, образовательные и B2B-сервисы в Центральной Азии."
+      }
+    ]
+  },
+  {
+    "key": 49, "first_name": "Нина", "last_name": "Б.", "username": "seed_nina_sales", "last_active_days_ago": 3,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "sales_bizdev", "country_code": "RU", "timezone": "Europe/Moscow",
+        "extra_attributes": {"specialization": "b2b_sales", "workload": "full_time", "format": "hybrid"},
+        "tags": ["B2B Sales", "CRM", "Negotiation", "Lead Generation", "Outreach", "Account Management"],
+        "bio": "Руководитель отдела продаж SaaS-продукта, девять лет в корпоративных продажах. Закрывала сделки на миллионы рублей, выстраивала скрипты и воронку, нанимала и обучала менеджеров. Умею вести длинные циклы согласований и работать с закупками крупных компаний.",
+        "goals": "Хочу присоединиться к B2B-стартапу в роли руководителя продаж или сооснователя по коммерческой части. Могу выстроить процесс с нуля и сама закрыть первые сделки. Нужен сильный продукт и технический партнёр, который готов слушать клиентов и быстро реагировать."
+      }
+    ]
+  },
+  {
+    "key": 50, "first_name": "Остап", "last_name": "Н.", "username": "seed_ostap_partnerships", "last_active_days_ago": 1,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "sales_bizdev", "country_code": "AE", "timezone": "Asia/Dubai",
+        "extra_attributes": {"specialization": "partnerships", "workload": "part_time", "format": "remote"},
+        "tags": ["Partnerships", "Negotiation", "Outreach", "Account Management", "B2B Sales"],
+        "bio": "Бизнес-девелопер, шесть лет строю партнёрства между технологическими компаниями и банками на Ближнем Востоке. Знаю, как устроены процессы согласований, и умею выходить на лиц, принимающих решения. Заключал интеграционные соглашения с платёжными системами и маркетплейсами.",
+        "goals": "Ищу стартапы, которым нужны партнёрские каналы и выход на новые рынки региона. Готов работать на частичной занятости с процентом от сделок или за долю. Интересны финтех, логистика и электронная коммерция, где партнёрство ускоряет рост лучше любой рекламы."
+      }
+    ]
+  },
+  {
+    "key": 51, "first_name": "Пётр", "last_name": "Г.", "username": "seed_petr_sales", "last_active_days_ago": 27,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "sales_bizdev", "country_code": "RU", "timezone": "Europe/Kirov",
+        "status": "paused",
+        "extra_attributes": {"specialization": "b2b_sales", "workload": "full_time", "format": "office"},
+        "tags": ["B2B Sales", "Cold Calling", "CRM", "Lead Generation", "Negotiation"],
+        "bio": "Менеджер по продажам, пять лет работаю с холодной базой в промышленном оборудовании и затем в IT-услугах. Умею вести скрипт, разговаривать с секретарями и выходить на директоров. Хорошо работаю в CRM и веду дисциплинированную отчётность по воронке.",
+        "goals": "Анкета на паузе: сейчас работаю над крупной сделкой и не рассматриваю новые предложения. Позже хочу перейти в технологический продукт и продавать то, во что верю. Интересны компании, где продавцу дают доступ к разработчикам и позволяют влиять на развитие."
+      }
+    ]
+  },
+  {
+    "key": 52, "first_name": "Рита", "last_name": "А.", "username": "seed_rita_partnerships", "last_active_days_ago": 16,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "sales_bizdev", "country_code": "DE", "timezone": "Europe/Berlin",
+        "extra_attributes": {"specialization": "partnerships", "workload": "full_time", "format": "hybrid"},
+        "tags": ["Partnerships", "Account Management", "Negotiation", "Outreach", "CRM"],
+        "bio": "Менеджер по партнёрствам в европейском SaaS, пять лет выстраиваю сеть реселлеров и интеграторов. Веду переговоры на английском и немецком, умею готовить партнёрские программы с понятными условиями. Знаю, как не потерять партнёра после первой сделки и поддерживать совместный рост.",
+        "goals": "Хочу вырасти до руководителя направления партнёрств в продукте с международными амбициями. Интересны стартапы на стадии выхода на европейский рынок, которым нужна помощь с локализацией и поиском первых партнёров. Готова рассмотреть переезд или удалённую работу."
+      }
+    ]
+  },
+  {
+    "key": 53, "first_name": "Семён", "last_name": "М.", "username": "seed_semen_sales", "last_active_days_ago": 52,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "sales_bizdev", "country_code": "RU", "timezone": "Asia/Yekaterinburg",
+        "extra_attributes": {"specialization": "b2b_sales", "workload": "part_time", "format": "remote"},
+        "tags": ["B2B Sales", "Outreach", "Lead Generation", "CRM", "Account Management"],
+        "bio": "Продавец с опытом в телекоммуникациях и затем в облачных услугах. Знаю, как продавать сложные услуги компаниям из регионов, где решения принимаются медленно и через личные знакомства. Веду переговоры уверенно, но не давлю, поэтому клиенты возвращаются сами.",
+        "goals": "Ищу стартап, которому нужен продавец на первые сделки, и готов работать с процентом от продаж. Подойдёт продукт для малого и среднего бизнеса. Хочу не просто продавать, а помогать команде понять, какие возражения встречаются у клиентов и что нужно доработать."
+      }
+    ]
+  },
+  {
+    "key": 54, "first_name": "Тамара", "last_name": "Л.", "username": "seed_tamara_investor", "last_active_days_ago": 1,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "finance_legal", "country_code": "GB", "timezone": "Europe/London",
+        "extra_attributes": {"specialization": "investor", "workload": "part_time", "format": "remote"},
+        "tags": ["Investor", "Fundraising", "Financial Model", "Contracts", "Tax"],
+        "bio": "Бизнес-ангел и бывший инвестиционный менеджер фонда. За последние шесть лет вложилась в двенадцать стартапов на ранней стадии, трое из них уже привлекли серию A. Особенно интересуюсь финтехом и образованием, люблю помогать основателям готовить раунд и вести переговоры.",
+        "goals": "Ищу основателей на стадии идеи и MVP, с которыми можно разделить путь, а не только вложить деньги. Готова давать чеки до пятидесяти тысяч долларов и помогать с контактами. Ценю прозрачную коммуникацию, честные цифры и команды, которые умеют признавать ошибки."
+      }
+    ]
+  },
+  {
+    "key": 55, "first_name": "Ульяна", "last_name": "Т.", "username": "seed_ulyana_lawyer", "last_active_days_ago": 6,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "finance_legal", "country_code": "RU", "timezone": "Europe/Moscow",
+        "extra_attributes": {"specialization": "lawyer", "workload": "part_time", "format": "remote"},
+        "tags": ["Law", "Contracts", "IP", "Fundraising", "Tax"],
+        "bio": "Юрист, специализируюсь на праве информационных технологий: договоры разработки, лицензии, персональные данные, интеллектуальная собственность. Сопровождала раунды инвестиций и создание структур для международных проектов. Объясняю юридические вопросы человеческим языком, без лишних формальностей.",
+        "goals": "Хочу помогать стартапам с юридической базой на ранней стадии: оформление компании, соглашения между основателями, договоры с клиентами. Готова брать небольшую долю вместо части гонорара у перспективных проектов. Интересны образовательные и социальные сервисы."
+      }
+    ]
+  },
+  {
+    "key": 56, "first_name": "Фаина", "last_name": "Е.", "username": "seed_faina_finance", "last_active_days_ago": 4,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "finance_legal", "country_code": "PL", "timezone": "Europe/Warsaw",
+        "extra_attributes": {"specialization": "financial_analyst", "workload": "part_time", "format": "remote"},
+        "tags": ["Financial Model", "Unit Economics", "Accounting", "Fundraising", "Tax"],
+        "bio": "Финансовый аналитик с шестилетним опытом в стартапах и консалтинге. Строю финансовые модели, юнит-экономику и бюджеты, готовлю материалы для инвесторов. Умею найти в таблицах ошибки, которые стоят месяцев работы, и показать основателям реальную картину движения денег.",
+        "goals": "Ищу стартап, которому нужен финансовый директор на частичной занятости. Готова выстроить учёт, модель и отчётность, чтобы основатель принимал решения по цифрам. Хорошо подойдёт компания накануне раунда, которой нужно привести финансы в порядок и защитить их перед инвесторами."
+      }
+    ]
+  },
+  {
+    "key": 57, "first_name": "Харитон", "last_name": "Н.", "username": "seed_hariton_investor", "last_active_days_ago": 70,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "finance_legal", "country_code": "CY", "timezone": "Asia/Nicosia",
+        "status": "paused",
+        "extra_attributes": {"specialization": "investor", "workload": "part_time", "format": "remote"},
+        "tags": ["Investor", "Fundraising", "Financial Model", "Contracts", "IP"],
+        "bio": "Частный инвестор и предприниматель. Продал небольшую компанию в сфере логистических технологий и теперь инвестирую в проекты ранней стадии. Предпочитаю участвовать операционно: помогаю с партнёрствами, наймом руководителей и подготовкой следующих раундов финансирования.",
+        "goals": "Анкета на паузе: сейчас закрываю текущие инвестиции и новых проектов не рассматриваю. Планирую вернуться через пару месяцев. Интересны основатели с опытом в логистике, торговле и промышленных технологиях, умеющие работать с физическими операциями и сложными цепочками поставок."
+      }
+    ]
+  },
+  {
+    "key": 58, "first_name": "Эльвира", "last_name": "Р.", "username": "seed_elvira_lawyer", "last_active_days_ago": 36,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "finance_legal", "country_code": "RS", "timezone": "Europe/Belgrade",
+        "extra_attributes": {"specialization": "lawyer", "workload": "full_time", "format": "hybrid"},
+        "tags": ["Law", "Contracts", "Tax", "IP", "Accounting"],
+        "bio": "Корпоративный юрист, живу в Сербии и помогаю релокантам и технологическим компаниям открывать юридические лица, оформлять трудовые отношения и налоговый учёт. Хорошо знаю местное законодательство и особенности работы с международными платёжными системами и банками.",
+        "goals": "Хочу присоединиться к команде, которая развивает сервисы для релокантов и международных компаний, в роли юриста или партнёра. Готова оформлять документы, консультировать клиентов и участвовать в запуске продукта. Особенно интересны проекты, упрощающие переезд и открытие бизнеса."
+      }
+    ]
+  }
+]

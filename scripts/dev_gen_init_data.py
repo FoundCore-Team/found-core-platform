@@ -7,6 +7,11 @@ Usage:
     python scripts/dev_gen_init_data.py --expired
     python scripts/dev_gen_init_data.py --bad-hash
     python scripts/dev_gen_init_data.py --telegram-id 555 --bot-token 123
+    python scripts/dev_gen_init_data.py --telegram-id 1000000000001 --username seed_anna_backend --first-name Анна
+    python scripts/dev_gen_init_data.py --no-username
+
+Logging in as a seed user overwrites its Telegram profile fields with what is signed here, so pass the seed user's
+own --username/--first-name (see scripts/data/seed_profiles/) to keep them intact.
 """
 
 import argparse
@@ -19,14 +24,22 @@ import urllib.parse
 WEBAPP_DATA_KEY = b"WebAppData"
 
 
-def build_init_data(bot_token: str, telegram_id: int, auth_date: int, bad_hash: bool) -> str:
+def build_init_data(
+    bot_token: str,
+    telegram_id: int,
+    auth_date: int,
+    bad_hash: bool,
+    first_name: str = "Test",
+    username: str | None = "testuser",
+) -> str:
     user = {
         "id": telegram_id,
-        "first_name": "Test",
+        "first_name": first_name,
         "last_name": "User",
-        "username": "testuser",
         "language_code": "en",
     }
+    if username is not None:
+        user["username"] = username
     params = {
         "query_id": "AAHdF6IQAAAAAN0XohDhrOrc",
         "user": json.dumps(user, separators=(",", ":")),
@@ -45,10 +58,17 @@ def main() -> None:
     parser.add_argument("--telegram-id", type=int, default=123456789)
     parser.add_argument("--expired", action="store_true", help="set auth_date 400 seconds in the past")
     parser.add_argument("--bad-hash", action="store_true", help="corrupt the hash")
+    parser.add_argument("--first-name", default="Test")
+    username_group = parser.add_mutually_exclusive_group()
+    username_group.add_argument("--username", default="testuser")
+    username_group.add_argument("--no-username", action="store_true", help="sign a user without a Telegram username")
     args = parser.parse_args()
 
     auth_date = int(time.time()) - (400 if args.expired else 0)
-    init_data = build_init_data(args.bot_token, args.telegram_id, auth_date, args.bad_hash)
+    username = None if args.no_username else args.username
+    init_data = build_init_data(
+        args.bot_token, args.telegram_id, auth_date, args.bad_hash, first_name=args.first_name, username=username
+    )
 
     print(init_data)
     print()
