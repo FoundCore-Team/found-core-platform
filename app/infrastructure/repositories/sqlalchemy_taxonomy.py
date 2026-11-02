@@ -117,6 +117,12 @@ class SqlAlchemyTaxonomyRepository(ITaxonomyRepository):
         )
         return [map_tag_model_to_tag_entity(m) for m in result.scalars().all()]
 
+    async def get_tags_by_ids(self, tag_ids: list[int]) -> list[TagEntity]:
+        result = await self._session.execute(
+            select(TagModel).where(TagModel.id.in_(tag_ids)).order_by(TagModel.id)
+        )
+        return [map_tag_model_to_tag_entity(m) for m in result.scalars().all()]
+
     async def create_tag(self, tag: NewTagEntity) -> TagEntity | None:
         stmt = (
             pg_insert(TagModel)
