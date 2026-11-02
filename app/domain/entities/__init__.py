@@ -17,6 +17,16 @@ __all__ = [
     "TimezoneEntity",
     "CountryEntity",
     "ProfileEmbeddingEntity",
+    "FeedFilters",
+    "FeedViewer",
+    "FeedCandidate",
+    "FeedReason",
+    "FeedRankedItem",
+    "FeedSession",
+    "FeedCursor",
+    "FeedCard",
+    "FeedPageItem",
+    "FeedPage",
 ]
 
 from app.domain.entities.auth import (
@@ -24,6 +34,18 @@ from app.domain.entities.auth import (
     TelegramAuthResult,
     TelegramInitData,
     TelegramUserPayload,
+)
+from app.domain.entities.feed import (
+    FeedCandidate,
+    FeedCard,
+    FeedCursor,
+    FeedFilters,
+    FeedPage,
+    FeedPageItem,
+    FeedRankedItem,
+    FeedReason,
+    FeedSession,
+    FeedViewer,
 )
 from app.domain.entities.profile import (
     CountryEntity,

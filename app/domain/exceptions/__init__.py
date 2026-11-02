@@ -23,6 +23,11 @@ __all__ = [
     "EmbeddingProviderUnavailableError",
     "EmbeddingRejectedError",
     "ProfileChangedDuringEmbeddingError",
+    "NoActiveProfileError",
+    "UsernameRequiredError",
+    "InvalidFeedFilterError",
+    "InvalidFeedCursorError",
+    "FeedProfileNotFoundError",
 ]
 
 from app.domain.exceptions.auth import (
@@ -36,6 +41,13 @@ from app.domain.exceptions.embedding import (
     EmbeddingProviderUnavailableError,
     EmbeddingRejectedError,
     ProfileChangedDuringEmbeddingError,
+)
+from app.domain.exceptions.feed import (
+    FeedProfileNotFoundError,
+    InvalidFeedCursorError,
+    InvalidFeedFilterError,
+    NoActiveProfileError,
+    UsernameRequiredError,
 )
 from app.domain.exceptions.profile import (
     InvalidCountryError,

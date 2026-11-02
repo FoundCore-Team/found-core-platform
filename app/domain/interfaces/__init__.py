@@ -1,5 +1,8 @@
 __all__ = [
     "IUserRepository",
+    "IFeedRepository",
+    "IFeedSessionRepository",
+    "IProfileViewRepository",
     "ITaxonomyRepository",
     "ITaxonomyCacheRepository",
     "IProfileRepository",
@@ -11,6 +14,9 @@ __all__ = [
 
 from app.domain.interfaces.embedding_provider import IEmbeddingProvider
 from app.domain.interfaces.embedding_queue import IEmbeddingJobQueue
+from app.domain.interfaces.feed import IFeedRepository
+from app.domain.interfaces.feed_session import IFeedSessionRepository
+from app.domain.interfaces.profile_view import IProfileViewRepository
 from app.domain.interfaces.profile import IProfileRepository
 from app.domain.interfaces.profile_embedding import IProfileEmbeddingRepository
 from app.domain.interfaces.taxonomy import ITaxonomyRepository

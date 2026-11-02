@@ -44,6 +44,10 @@ class ITaxonomyRepository(ABC):
         """
 
     @abstractmethod
+    async def get_tags_by_ids(self, tag_ids: list[int]) -> list[TagEntity]:
+        """Tags of any status among `tag_ids`, ordered by id. Ids that do not exist are simply absent."""
+
+    @abstractmethod
     async def create_tag(self, tag: NewTagEntity) -> TagEntity | None:
         """Returns None if a tag with the same normalized_title already exists."""
 
