@@ -54,6 +54,14 @@ class TimezoneCatalog:
         zone_ids = _load_zones_by_country().get(country_code, ())
         return sorted(zone_ids, key=lambda zone_id: (self._offset_seconds(zone_id, moment), zone_id))
 
+    def zone_ids_with_same_offset(self, zone_id: str, at: datetime | None = None) -> list[str]:
+        """Every catalog zone whose UTC offset right now equals the offset of `zone_id`, the zone itself included."""
+        moment = at or datetime.now(UTC)
+        target = self._offset_seconds(zone_id, moment)
+        catalog_zone_ids = {zone for zones in _load_zones_by_country().values() for zone in zones}
+        catalog_zone_ids.add(zone_id)
+        return sorted(zone for zone in catalog_zone_ids if self._offset_seconds(zone, moment) == target)
+
     def utc_offset(self, zone_id: str, at: datetime | None = None) -> str:
         total_minutes = self._offset_seconds(zone_id, at or datetime.now(UTC)) // 60
         sign = "+" if total_minutes >= 0 else "-"

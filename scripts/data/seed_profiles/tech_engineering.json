@@ -1,0 +1,243 @@
+[
+  {
+    "key": 1, "first_name": "Анна", "last_name": "К.", "username": "seed_anna_backend", "last_active_days_ago": 2,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "RU", "timezone": "Europe/Moscow",
+        "extra_attributes": {"specialization": "backend", "grade": "senior", "workload": "part_time", "format": "remote"},
+        "tags": ["Python", "FastAPI", "PostgreSQL", "Docker", "Redis"],
+        "bio": "Backend-разработчица с семью годами опыта. Пишу сервисы на Python и FastAPI, проектирую схемы в PostgreSQL, настраиваю очереди и кэш на Redis. Последние три года веду платёжный модуль в продуктовой компании и люблю, когда у системы понятные границы и честные тесты.",
+        "goals": "Ищу сильную команду или сооснователя для продукта в финтехе или B2B SaaS. Готова взять на себя всю серверную часть, архитектуру и найм первых инженеров. Для меня важны открытая коммуникация, реалистичные сроки и желание делать продукт, а не презентации."
+      },
+      {
+        "category": "edu_growth", "role": "mentor_mentee", "country_code": "RU", "timezone": "Europe/Moscow",
+        "extra_attributes": {"looking_for": "mentee", "frequency": "weekly", "format": "online"},
+        "tags": ["Career Growth", "Code Review", "Interview Prep", "Leadership", "Soft Skills"],
+        "bio": "Помогаю начинающим backend-разработчикам расти: разбираю их код, объясняю, как устроены production-системы, и готовлю к собеседованиям. За плечами несколько десятков проведённых технических интервью с обеих сторон стола и опыт наставничества в двух компаниях.",
+        "goals": "Хочу взять двух-трёх менти на полгода и пройти с ними путь от первого pull request до уверенной работы в команде. Ожидаю регулярных встреч, домашних заданий и честной обратной связи в обе стороны, без формальности ради галочки."
+      }
+    ]
+  },
+  {
+    "key": 2, "first_name": "Дмитрий", "last_name": "С.", "username": "seed_dmitry_frontend", "last_active_days_ago": 1,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "RU", "timezone": "Europe/Kirov",
+        "extra_attributes": {"specialization": "frontend", "grade": "middle", "workload": "full_time", "format": "remote"},
+        "tags": ["React", "TypeScript", "Node.js", "CI/CD", "GraphQL"],
+        "bio": "Frontend-разработчик, четыре года пишу интерфейсы на React и TypeScript. Работал над личным кабинетом банка и над внутренними инструментами для аналитиков. Хорошо чувствую производительность клиента, доступность и то, как дизайн превращается в живые компоненты.",
+        "goals": "Хочу присоединиться к ранней команде продукта, где frontend ещё только строится с нуля. Интересны сервисы для малого бизнеса и образовательные продукты. Готов отвечать за клиентскую часть целиком и вместе с дизайнером выстраивать дизайн-систему."
+      }
+    ]
+  },
+  {
+    "key": 3, "first_name": "Ольга", "last_name": "М.", "username": "seed_olga_devops", "last_active_days_ago": 4,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "TR", "timezone": "Europe/Istanbul",
+        "extra_attributes": {"specialization": "devops", "grade": "lead", "workload": "part_time", "format": "remote"},
+        "tags": ["Kubernetes", "Docker", "CI/CD", "Terraform", "Python", "PostgreSQL"],
+        "bio": "DevOps-инженер, девять лет строю инфраструктуру: от первых скриптов деплоя до кластеров Kubernetes на сотни сервисов. Умею делать так, чтобы релизы были скучными, откаты быстрыми, а счета за облако понятными. Руковожу небольшой платформенной командой.",
+        "goals": "Ищу стартап, которому нужна инфраструктура с нуля, и готова быть техническим партнёром на долю. Хочу выстроить пайплайны, мониторинг и безопасность так, чтобы команда продукта вообще не думала о серверах и спокойно выпускала изменения каждый день."
+      }
+    ]
+  },
+  {
+    "key": 4, "first_name": "Игорь", "last_name": "Л.", "username": "seed_igor_fullstack", "last_active_days_ago": 3,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "RU", "timezone": "Europe/Moscow",
+        "extra_attributes": {"specialization": "fullstack", "grade": "senior", "workload": "full_time", "format": "hybrid"},
+        "tags": ["Python", "React", "TypeScript", "PostgreSQL", "Docker", "FastAPI"],
+        "bio": "Fullstack-разработчик с восьмилетним стажем. Собирал продукты от прототипа до первых тысяч пользователей: бэкенд на Python, клиент на React, деплой в Docker. Привык быстро проверять гипотезы и не боюсь выкидывать собственный код, если он не работает на продукт.",
+        "goals": "Ищу сооснователя-предпринимателя с идеей и первыми разговорами с клиентами. Могу один сделать MVP за два-три месяца. Хочу работать в паре с человеком, который берёт на себя продажи и продуктовые решения, и вместе довести проект до выручки."
+      },
+      {
+        "category": "tech_product", "role": "product_project", "country_code": "RU", "timezone": "Europe/Moscow",
+        "extra_attributes": {"specialization": "project_manager", "grade": "middle", "workload": "part_time", "format": "remote"},
+        "tags": ["Agile", "Scrum", "Roadmap", "Jira", "Discovery"],
+        "bio": "Кроме разработки, регулярно веду небольшие проекты как менеджер: расставляю приоритеты, договариваюсь с заказчиком и слежу, чтобы команда не выгорала. Хорошо понимаю обе стороны, поэтому быстро нахожу, где разработка и бизнес говорят на разных языках.",
+        "goals": "Хочу попробовать себя в роли проектного менеджера в продуктовой команде на частичной занятости. Интересны проекты в стадии роста, где нужно навести порядок в процессах, но без лишней бюрократии и бесконечных отчётов ради отчётов."
+      }
+    ]
+  },
+  {
+    "key": 5, "first_name": "Мария", "last_name": "Т.", "username": "seed_maria_data", "last_active_days_ago": 6,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "DE", "timezone": "Europe/Berlin",
+        "extra_attributes": {"specialization": "data_ai_ml", "grade": "middle", "workload": "part_time", "format": "remote"},
+        "tags": ["Python", "PyTorch", "PostgreSQL", "Docker", "Machine Learning"],
+        "bio": "Инженер по данным и машинному обучению. Обучала модели рекомендаций для маркетплейса, строила пайплайны подготовки данных и следила за качеством в продакшене. Люблю разбираться, почему модель ошибается, и объяснять результаты людям, которые далеки от математики.",
+        "goals": "Хочу применить ML в живом продукте, а не в презентации. Ищу команду, где есть данные и реальная задача: рекомендации, поиск, скоринг. Готова совмещать с основной работой и со временем перейти в проект полностью, если он взлетит."
+      }
+    ]
+  },
+  {
+    "key": 6, "first_name": "Сергей", "last_name": "Н.", "username": "seed_sergey_mobile", "last_active_days_ago": 0,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "BY", "timezone": "Europe/Minsk",
+        "extra_attributes": {"specialization": "mobile", "grade": "senior", "workload": "full_time", "format": "remote"},
+        "tags": ["Swift", "Kotlin", "Flutter", "CI/CD", "Mobile"],
+        "bio": "Мобильный разработчик: шесть лет делаю приложения для iOS и Android, последние два года перешёл на Flutter. Выпустил в сторы больше десятка приложений, знаю все подводные камни публикации, push-уведомлений и офлайн-режима, умею держать приложение быстрым на старых телефонах.",
+        "goals": "Ищу продукт, где мобильное приложение — основной канал. Хочу быть первым мобильным инженером в команде и сам выбрать стек. Особенно интересны сервисы для образования и здоровья, где важны доверие пользователей и аккуратная работа с их данными."
+      }
+    ]
+  },
+  {
+    "key": 7, "first_name": "Екатерина", "last_name": "В.", "username": "seed_ekaterina_qa", "last_active_days_ago": 5,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "RU", "timezone": "Asia/Yekaterinburg",
+        "extra_attributes": {"specialization": "qa", "grade": "middle", "workload": "part_time", "format": "remote"},
+        "tags": ["Selenium", "Python", "CI/CD", "Docker", "Postman"],
+        "bio": "QA-инженер, пять лет в тестировании веб-приложений и API. Пишу автотесты на Python, настраиваю их запуск в CI и умею находить сценарии, которые никто не продумал заранее. Считаю, что качество — это обязанность всей команды, а тестировщик просто помогает его измерять.",
+        "goals": "Хочу попасть в небольшую команду, где тестирование выстраивается с нуля и от меня ждут не только поиска багов, но и влияния на процессы. Готова работать на долю в проекте, если в нём есть понятная перспектива и сильные разработчики."
+      }
+    ]
+  },
+  {
+    "key": 8, "first_name": "Артём", "last_name": "Ж.", "username": "seed_artem_backend_go", "last_active_days_ago": 3,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "PL", "timezone": "Europe/Warsaw",
+        "extra_attributes": {"specialization": "backend", "grade": "middle", "workload": "full_time", "format": "remote"},
+        "tags": ["Go", "PostgreSQL", "Docker", "Kafka", "Kubernetes"],
+        "bio": "Backend-разработчик на Go, четыре года в высоконагруженных системах: очереди сообщений, потоковая обработка событий, API с тысячами запросов в секунду. Люблю простые решения, внимательно читаю чужой код и пишу документацию, которую потом действительно открывают.",
+        "goals": "Хочу вырасти до уровня senior и ищу команду с сильными инженерами, где можно учиться на ревью и проектировании. Открыт к предложениям в финтехе и инфраструктурных продуктах. Ценю гибкий график и возможность выступать на внутренних встречах."
+      },
+      {
+        "category": "edu_growth", "role": "pet_project_partner", "country_code": "PL", "timezone": "Europe/Warsaw",
+        "extra_attributes": {"goal": "portfolio", "frequency": "weekly", "format": "online"},
+        "tags": ["Open Source", "Side Project", "Hackathon", "Portfolio Building", "Go"],
+        "bio": "По выходным пишу небольшие инструменты для разработчиков на Go и выкладываю их в открытый доступ. Сейчас делаю утилиту для просмотра логов в терминале. Ищу тех, кому интересно строить что-то маленькое, но аккуратное, и довести его до релиза.",
+        "goals": "Хочу найти напарника или двух для пет-проекта на несколько месяцев: вместе выбрать идею, поделить задачи и выпустить рабочий продукт. Идеально, если кто-то возьмёт на себя интерфейс и документацию, а я займусь ядром и тестами."
+      }
+    ]
+  },
+  {
+    "key": 9, "first_name": "Наталья", "last_name": "Р.", "username": "seed_natalia_frontend", "last_active_days_ago": 5,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "KZ", "timezone": "Asia/Almaty",
+        "extra_attributes": {"specialization": "frontend", "grade": "junior", "workload": "part_time", "format": "remote"},
+        "tags": ["React", "TypeScript", "Figma", "Node.js", "UI/UX"],
+        "bio": "Начинающий frontend-разработчик: год назад закончила курсы, затем полгода делала интерфейсы для небольшого интернет-магазина. Хорошо работаю с макетами в Figma и аккуратно верстаю. Быстро учусь, не боюсь задавать вопросы и принимать критику на ревью кода.",
+        "goals": "Ищу команду, где junior-разработчика не оставят одного. Хочу работать рядом с опытными коллегами, получать задачи по силам и расти. Готова на неполную занятость и даже на небольшой стартап, если там будут наставник и интересные задачи."
+      }
+    ]
+  },
+  {
+    "key": 10, "first_name": "Павел", "last_name": "Д.", "username": "seed_pavel_backend", "last_active_days_ago": 18,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "GE", "timezone": "Asia/Tbilisi",
+        "status": "paused",
+        "extra_attributes": {"specialization": "backend", "grade": "junior", "workload": "full_time", "format": "remote"},
+        "tags": ["Python", "Django", "PostgreSQL", "Docker", "Redis"],
+        "bio": "Junior backend-разработчик на Python и Django. Год работал в небольшой студии: делал админки, интеграции с платёжными системами и простые API. Разбираюсь в основах баз данных и Docker, хочу глубже понять проектирование сервисов и принципы надёжной работы систем.",
+        "goals": "Сейчас на паузе: перехожу на другой проект и пока не рассматриваю предложения. Вернусь к поиску команды, когда освобожусь. Хочу в итоге попасть в продуктовую компанию, где можно писать код каждый день и учиться у более опытных людей."
+      }
+    ]
+  },
+  {
+    "key": 11, "first_name": "Юлия", "last_name": "Ш.", "username": null, "last_active_days_ago": 7,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "RU", "timezone": "Asia/Novosibirsk",
+        "extra_attributes": {"specialization": "fullstack", "grade": "middle", "workload": "full_time", "format": "hybrid"},
+        "tags": ["Node.js", "React", "TypeScript", "PostgreSQL", "Docker"],
+        "bio": "Fullstack-разработчица, пять лет на стеке Node.js и React. Делала CRM для малого бизнеса, личные кабинеты и интеграции с внешними сервисами. Ценю чистую архитектуру без лишних абстракций и стараюсь оставлять после себя код, который коллеги смогут быстро понять.",
+        "goals": "Хочу найти проект, в котором fullstack-разработчик влияет на продуктовые решения. Интересны небольшие команды и стартапы на ранней стадии. Важно, чтобы в команде был человек, отвечающий за продукт, а я могла сосредоточиться на качественной реализации."
+      }
+    ]
+  },
+  {
+    "key": 12, "first_name": "Алексей", "last_name": "Б.", "username": "seed_alexey_devops", "last_active_days_ago": 4,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "DE", "timezone": "Europe/Berlin",
+        "extra_attributes": {"specialization": "devops", "grade": "senior", "workload": "part_time", "format": "remote"},
+        "tags": ["Kubernetes", "Terraform", "Docker", "CI/CD", "Go"],
+        "bio": "Senior DevOps-инженер, живу в Германии. Автоматизирую инфраструктуру в облаке, пишу модули Terraform и операторы для Kubernetes на Go. Занимаюсь наблюдаемостью систем: метрики, логи, трассировки. Люблю делиться опытом на митапах и в коротких заметках для коллег.",
+        "goals": "Ищу интересный инфраструктурный проект на частичную занятость, желательно с открытым исходным кодом или с командой, которая серьёзно относится к надёжности. Могу консультировать стартапы по облаку и помогать с переходом на Kubernetes без лишних затрат."
+      }
+    ]
+  },
+  {
+    "key": 13, "first_name": "Виктория", "last_name": "О.", "username": "seed_viktoria_ml", "last_active_days_ago": 22,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "GB", "timezone": "Europe/London",
+        "skip_embedding": true,
+        "extra_attributes": {"specialization": "data_ai_ml", "grade": "senior", "workload": "full_time", "format": "remote"},
+        "tags": ["Python", "PyTorch", "Machine Learning", "Docker", "PostgreSQL"],
+        "bio": "Старший специалист по машинному обучению, восемь лет в индустрии. Занималась обработкой текстов, поиском по смыслу и оценкой качества языковых моделей. Умею превращать исследовательский прототип в надёжный сервис и объяснять руководителям, чего ожидать от модели.",
+        "goals": "Ищу продукт, построенный вокруг языковых моделей, где есть реальные пользователи и честные метрики. Готова стать техническим сооснователем или первым ML-инженером. Важно, чтобы команда понимала ограничения моделей и не обещала клиентам невозможного."
+      }
+    ]
+  },
+  {
+    "key": 14, "first_name": "Роман", "last_name": "Е.", "username": "seed_roman_mobile", "last_active_days_ago": 2,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "AM", "timezone": "Asia/Yerevan",
+        "extra_attributes": {"specialization": "mobile", "grade": "junior", "workload": "part_time", "format": "remote"},
+        "tags": ["Kotlin", "Flutter", "Mobile", "Figma", "Android"],
+        "bio": "Начинающий Android-разработчик: учусь на последнем курсе, параллельно делаю учебное приложение для заметок на Kotlin и пробую Flutter. Знаю основы архитектуры мобильных приложений, умею работать с сетью и локальной базой, хочу набраться реального опыта в команде.",
+        "goals": "Ищу стажировку или небольшой проект, где можно участвовать в разработке настоящего приложения. Готов много учиться, выполнять небольшие задачи и показывать результат. Особенно интересны мобильные продукты для студентов и сервисы для изучения языков."
+      }
+    ]
+  },
+  {
+    "key": 15, "first_name": "Татьяна", "last_name": "К.", "username": "seed_tatiana_qa", "last_active_days_ago": 35, "is_banned": true,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "RU", "timezone": "Europe/Moscow",
+        "extra_attributes": {"specialization": "qa", "grade": "senior", "workload": "full_time", "format": "office"},
+        "tags": ["Selenium", "Python", "CI/CD", "Postman", "Docker"],
+        "bio": "Ведущий QA-инженер с десятилетним опытом. Выстраивала тестирование в трёх продуктовых компаниях, внедряла автотесты и контрактное тестирование API. Хорошо знаю, как организовать процесс качества, чтобы он не тормозил релизы, а помогал выпускать их увереннее.",
+        "goals": "Ищу позицию руководителя группы тестирования или консультанта по построению процесса качества. Хочу работать в компании, где релизы выходят часто, а качество измеряется метриками. Готова наставлять молодых инженеров и выступать на внутренних обучающих встречах."
+      }
+    ]
+  },
+  {
+    "key": 16, "first_name": "Кирилл", "last_name": "Ф.", "username": "seed_kirill_backend", "last_active_days_ago": 26,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "RU", "timezone": "Europe/Moscow",
+        "status": "paused",
+        "extra_attributes": {"specialization": "backend", "grade": "lead", "workload": "full_time", "format": "hybrid"},
+        "tags": ["Java", "PostgreSQL", "Kafka", "Kubernetes", "Docker"],
+        "bio": "Тимлид backend-разработки, двенадцать лет в индустрии. Руковожу командой из восьми человек, отвечаю за архитектуру платформы обработки заказов на Java. Умею договариваться с бизнесом, планировать сроки и растить инженеров, которые потом сами становятся лидерами.",
+        "goals": "Анкета на паузе: сейчас нет времени на новые проекты. Когда освобожусь, хочу найти амбициозный продукт, где нужен технический директор или сооснователь. Мне важны сильная команда, ясная стратегия и возможность строить инженерную культуру с самого начала."
+      }
+    ]
+  },
+  {
+    "key": 17, "first_name": "Елена", "last_name": "Г.", "username": "seed_elena_frontend", "last_active_days_ago": 6,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "ES", "timezone": "Europe/Madrid",
+        "extra_attributes": {"specialization": "frontend", "grade": "senior", "workload": "part_time", "format": "remote"},
+        "tags": ["React", "TypeScript", "Design Systems", "Figma", "CI/CD"],
+        "pending_tags": ["Web Performance"],
+        "bio": "Senior frontend-разработчица, девять лет строю интерфейсы и дизайн-системы. Занимаюсь производительностью клиента, доступностью и тестированием компонентов. Живу в Испании, работаю удалённо с командами из разных стран и привыкла чётко фиксировать договорённости в письменном виде.",
+        "goals": "Хочу присоединиться к продукту, где интерфейс — главное конкурентное преимущество. Могу выстроить дизайн-систему, настроить процессы разработки компонентов и научить команду писать доступный код. Рассматриваю частичную занятость и работу за долю в перспективном проекте."
+      }
+    ]
+  },
+  {
+    "key": 18, "first_name": "Владимир", "last_name": "Ч.", "username": "seed_vladimir_fullstack", "last_active_days_ago": 40,
+    "profiles": [
+      {
+        "category": "tech_product", "role": "engineering", "country_code": "RS", "timezone": "Europe/Belgrade",
+        "extra_attributes": {"specialization": "fullstack", "grade": "junior", "workload": "full_time", "format": "remote"},
+        "tags": ["Python", "React", "Django", "PostgreSQL", "Docker"],
+        "bio": "Junior fullstack-разработчик, переехал в Сербию год назад и работаю удалённо. Делаю небольшие веб-приложения на Django и React, знаю основы Docker и работы с базами данных. Недавно запустил свой первый pet-проект с реальными пользователями и многому на нём научился.",
+        "goals": "Ищу команду, где можно получить опыт полноценной разработки и вырасти до middle за год-полтора. Готов брать на себя разные задачи: от вёрстки до миграций базы данных. Хотел бы работать в паре с наставником и регулярно получать обратную связь по коду."
+      }
+    ]
+  }
+]

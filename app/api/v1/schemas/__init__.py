@@ -15,9 +15,21 @@ __all__ = [
     "TagLimitsSchema",
     "TimezoneSchema",
     "CountrySchema",
+    "FeedProfileSchema",
+    "FeedItemSchema",
+    "FeedPageSchema",
+    "FeedReasonSchema",
+    "FeedViewRequest",
 ]
 
 from app.api.v1.schemas.auth import TelegramAuthRequest, TelegramAuthResponse
+from app.api.v1.schemas.feed import (
+    FeedItemSchema,
+    FeedPageSchema,
+    FeedProfileSchema,
+    FeedReasonSchema,
+    FeedViewRequest,
+)
 from app.api.v1.schemas.profile import (
     CountrySchema,
     ProfileCreateRequest,

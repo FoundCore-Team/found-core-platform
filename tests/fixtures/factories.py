@@ -1,7 +1,48 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from app.domain.entities import NewProfileEntity, NewUserEntity, ProfileEntity, UserEntity
+from app.domain.entities import (
+    FeedCandidate,
+    FeedCard,
+    FeedViewer,
+    NewProfileEntity,
+    NewUserEntity,
+    ProfileEntity,
+    UserEntity,
+)
 from app.domain.enums import ProfileStatus
+
+FEED_NOW = datetime(2026, 10, 28, 12, 0, tzinfo=timezone.utc)
+
+
+def make_feed_viewer(**overrides) -> FeedViewer:
+    defaults = dict(
+        profile_id=1,
+        user_id=1,
+        category_id=1,
+        role_id=5,
+        country_code="RU",
+        timezone="Europe/Moscow",
+        tag_ids=[1, 2, 3, 4, 5],
+        has_comparable_vector=True,
+    )
+    defaults.update(overrides)
+    return FeedViewer(**defaults)
+
+
+def make_feed_candidate(**overrides) -> FeedCandidate:
+    defaults = dict(
+        profile_id=101,
+        category_id=1,
+        role_id=5,
+        country_code="RU",
+        timezone="Europe/Moscow",
+        tag_ids=[3, 4, 5, 42, 43, 44],
+        cos_sim=0.62,
+        last_active_at=FEED_NOW - timedelta(days=2),
+        matched_filters=[],
+    )
+    defaults.update(overrides)
+    return FeedCandidate(**defaults)
 
 
 def make_new_user_entity(**overrides) -> NewUserEntity:
@@ -42,6 +83,17 @@ def make_user_entity(**overrides) -> UserEntity:
     )
     defaults.update(overrides)
     return UserEntity(**defaults)
+
+
+def make_feed_card(profile_id: int, **overrides) -> FeedCard:
+    defaults = dict(
+        profile=make_profile_entity(id=profile_id, user_id=profile_id + 1000),
+        first_name=f"User{profile_id}",
+        photo_url=None,
+        is_viewed=False,
+    )
+    defaults.update(overrides)
+    return FeedCard(**defaults)
 
 
 def make_new_profile_entity(**overrides) -> NewProfileEntity:

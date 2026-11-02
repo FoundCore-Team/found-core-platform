@@ -103,3 +103,44 @@ def test_profile_config_defaults_and_plain_model():
     assert config.allowed_country_codes == []
     # A BaseSettings default instance would read unprefixed environment variables.
     assert not issubclass(ProfileConfig, BaseSettings)
+
+
+def test_moscow_kirov_and_istanbul_share_an_offset(catalog):
+    zone_ids = catalog.zone_ids_for("RU")  # sanity: Kirov is a Russian zone of its own
+    assert "Europe/Kirov" in zone_ids
+
+    for moment in (WINTER, SUMMER):
+        same = catalog.zone_ids_with_same_offset("Europe/Moscow", at=moment)
+
+        assert {"Europe/Moscow", "Europe/Kirov", "Europe/Istanbul", "Europe/Minsk"} <= set(same)
+        assert "Europe/Berlin" not in same
+
+
+def test_same_offset_zones_are_sorted_and_include_the_zone_itself(catalog):
+    same = catalog.zone_ids_with_same_offset("Europe/Berlin", at=WINTER)
+
+    assert same == sorted(same)
+    assert "Europe/Berlin" in same
+
+
+def test_same_offset_follows_daylight_saving_time(catalog):
+    # Winter: Berlin and Lagos are both +01:00. Summer: Berlin moves to +02:00, Lagos stays, Paris follows Berlin.
+    assert "Africa/Lagos" in catalog.zone_ids_with_same_offset("Europe/Berlin", at=WINTER)
+    assert "Africa/Lagos" not in catalog.zone_ids_with_same_offset("Europe/Berlin", at=SUMMER)
+    for moment in (WINTER, SUMMER):
+        assert "Europe/Paris" in catalog.zone_ids_with_same_offset("Europe/Berlin", at=moment)
+
+
+def test_same_offset_matches_half_hour_zones_exactly(catalog):
+    same = catalog.zone_ids_with_same_offset("Asia/Kolkata", at=WINTER)
+
+    assert "Asia/Kolkata" in same
+    assert "Asia/Dhaka" not in same  # +06:00
+
+
+def test_a_zone_missing_from_the_catalog_still_matches_itself(catalog):
+    # "UTC" is a valid ZoneInfo key but is not listed in zone.tab.
+    same = catalog.zone_ids_with_same_offset("UTC", at=WINTER)
+
+    assert "UTC" in same
+    assert "Africa/Abidjan" in same

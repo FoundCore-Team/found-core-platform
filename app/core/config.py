@@ -1,3 +1,6 @@
+import hashlib
+import json
+import math
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -101,6 +104,69 @@ class EmbeddingConfig(BaseModel):
     sweep_batch_size: int = 100
 
 
+class FeedConfig(BaseModel):
+    # Plain BaseModel for the same reason as RunConfig.
+    weight_semantic: float = 0.4
+    weight_tags: float = 0.4
+    weight_role: float = 0.2
+    role_affinity_same_role: float = 1.0
+    role_affinity_same_category: float = 0.5
+    activity_recent_days: int = 7
+    activity_stale_days: int = 30
+    activity_factor_recent: float = 1.0
+    activity_factor_stale: float = 0.8
+    activity_factor_old: float = 0.5
+    session_ttl_seconds: int = 1800
+    session_cap: int = 200
+    page_size_default: int = 20
+    page_size_max: int = 50
+    bio_tier_min_cos_sim: float = 0.35
+    similar_bio_reason_min_cos_sim: float = 0.5
+    max_reason_tags: int = 5
+    # Sanity bound for the offset inside a cursor; far above session_cap, so only forged cursors reach it.
+    max_cursor_offset: int = 10_000
+
+    @model_validator(mode="after")
+    def _check_consistency(self) -> "FeedConfig":
+        # Float sums are inexact (0.1 + 0.2 + 0.7 != 1.0), so compare with a tolerance.
+        weights_sum = self.weight_semantic + self.weight_tags + self.weight_role
+        if not math.isclose(weights_sum, 1.0):
+            raise ValueError("feed weights must sum to 1")
+        if not 0 < self.activity_recent_days < self.activity_stale_days:
+            raise ValueError("feed activity thresholds must satisfy 0 < recent < stale")
+        for name in ("bio_tier_min_cos_sim", "similar_bio_reason_min_cos_sim"):
+            if not 0 <= getattr(self, name) <= 1:
+                raise ValueError(f"{name} must be between 0 and 1")
+        if not 1 <= self.page_size_default <= self.page_size_max:
+            raise ValueError("feed page_size_default must be between 1 and page_size_max")
+        if self.session_cap < 1:
+            raise ValueError("feed session_cap must be positive")
+        if self.max_cursor_offset < self.session_cap:
+            raise ValueError("feed max_cursor_offset must not be below session_cap")
+        return self
+
+    def scoring_fingerprint(self) -> str:
+        """Hash of every value that changes who is in a feed session or in what order. Part of the session key."""
+        values = self.model_dump(
+            include={
+                "weight_semantic",
+                "weight_tags",
+                "weight_role",
+                "role_affinity_same_role",
+                "role_affinity_same_category",
+                "activity_recent_days",
+                "activity_stale_days",
+                "activity_factor_recent",
+                "activity_factor_stale",
+                "activity_factor_old",
+                "bio_tier_min_cos_sim",
+                "similar_bio_reason_min_cos_sim",
+                "max_reason_tags",
+            }
+        )
+        return hashlib.sha256(json.dumps(values, sort_keys=True).encode("ascii")).hexdigest()
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(".env",),
@@ -119,6 +185,7 @@ class Settings(BaseSettings):
     auth: AuthConfig
     taxonomy: TaxonomyConfig = TaxonomyConfig()
     profile: ProfileConfig = ProfileConfig()
+    feed: FeedConfig = FeedConfig()
     embedding: EmbeddingConfig
 
     @staticmethod

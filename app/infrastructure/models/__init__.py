@@ -9,11 +9,13 @@ __all__ = [
     "ProfileModel",
     "ProfileTagModel",
     "ProfileEmbeddingModel",
+    "ProfileViewModel",
 ]
 
 from app.infrastructure.models.base import Base
 from app.infrastructure.models.profile import ProfileModel, ProfileTagModel
 from app.infrastructure.models.profile_embedding import ProfileEmbeddingModel
+from app.infrastructure.models.profile_view import ProfileViewModel
 from app.infrastructure.models.taxonomy import (
     CategoryModel,
     RoleFieldModel,
