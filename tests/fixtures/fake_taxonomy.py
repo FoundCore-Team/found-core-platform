@@ -79,6 +79,10 @@ class FakeTaxonomyRepository(ITaxonomyRepository):
         }
         return [t for t in sorted(self.tags.values(), key=lambda t: t.id) if t.id in tag_ids and t.id in in_scope]
 
+    async def get_tags_by_ids(self, tag_ids: list[int]) -> list[TagEntity]:
+        self._record("get_tags_by_ids")
+        return [t for t in sorted(self.tags.values(), key=lambda t: t.id) if t.id in tag_ids]
+
     async def create_tag(self, tag: NewTagEntity) -> TagEntity | None:
         self._record("create_tag")
         exists = any(t.normalized_title == tag.normalized_title for t in self.tags.values())
