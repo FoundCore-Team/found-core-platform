@@ -1,6 +1,8 @@
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.services.feed_filter_validator import FeedFilterValidator
+from app.application.services.feed_viewer_resolver import FeedViewerResolver
 from app.application.services.jwt_service import JWTService
 from app.application.services.profile_content_validator import ProfileContentValidator
 from app.application.services.telegram_init_data import TelegramInitDataValidator
@@ -13,12 +15,15 @@ from app.application.use_cases import (
     DeleteProfileUseCase,
     EmbedProfileUseCase,
     GetCategoriesUseCase,
+    GetFeedCardUseCase,
+    GetFeedUseCase,
     GetMyProfilesUseCase,
     GetProfileFormConfigUseCase,
     GetProfileUseCase,
     GetRoleFieldsByRoleUseCase,
     GetRolesByCategoryUseCase,
     PauseProfileUseCase,
+    RecordProfileViewUseCase,
     ResumeProfileUseCase,
     SuggestTagsUseCase,
     SweepStaleEmbeddingsUseCase,
@@ -27,13 +32,22 @@ from app.application.use_cases import (
 )
 from app.core.config import settings
 from app.domain.interfaces import IEmbeddingProvider
-from app.domain.services import ExtraAttributesValidator, ProfileFormValidator, TagTitleValidator
+from app.domain.services import (
+    ExtraAttributesValidator,
+    FeedRanker,
+    FeedScorer,
+    ProfileFormValidator,
+    TagTitleValidator,
+)
 from app.infrastructure.providers import OpenAIEmbeddingProvider, StubEmbeddingProvider
 from app.infrastructure.queues import CeleryEmbeddingJobQueue
 from app.infrastructure.repositories import (
+    RedisFeedSessionRepository,
     RedisTaxonomyCacheRepository,
+    SqlAlchemyFeedRepository,
     SqlAlchemyProfileEmbeddingRepository,
     SqlAlchemyProfileRepository,
+    SqlAlchemyProfileViewRepository,
     SqlAlchemyTaxonomyRepository,
     SqlAlchemyUserRepository,
 )
@@ -97,7 +111,28 @@ class Container:
     def profile_embedding_repo(self) -> SqlAlchemyProfileEmbeddingRepository:
         return SqlAlchemyProfileEmbeddingRepository(self.session)
 
+    def feed_repo(self) -> SqlAlchemyFeedRepository:
+        return SqlAlchemyFeedRepository(self.session)
+
+    def profile_view_repo(self) -> SqlAlchemyProfileViewRepository:
+        return SqlAlchemyProfileViewRepository(self.session)
+
+    def feed_session_repo(self) -> RedisFeedSessionRepository:
+        return RedisFeedSessionRepository(
+            redis_client=self.redis_client,
+            ttl_seconds=settings.feed.session_ttl_seconds,
+        )
+
     # ---------- embeddings ----------
+
+    def current_embedding_model(self) -> str:
+        """Name of the model whose vectors are comparable today, without building a provider.
+
+        `embedding_provider()` would raise for `openai` without a key, which must not take the feed down in dev.
+        """
+        if settings.embedding.provider == "stub":
+            return StubEmbeddingProvider().model
+        return settings.embedding.model
 
     def embedding_provider(self) -> IEmbeddingProvider:
         config = settings.embedding
@@ -149,6 +184,40 @@ class Container:
 
     def extra_attributes_validator(self) -> ExtraAttributesValidator:
         return ExtraAttributesValidator()
+
+    def feed_scorer(self) -> FeedScorer:
+        config = settings.feed
+        return FeedScorer(
+            weight_semantic=config.weight_semantic,
+            weight_tags=config.weight_tags,
+            weight_role=config.weight_role,
+            role_affinity_same_role=config.role_affinity_same_role,
+            role_affinity_same_category=config.role_affinity_same_category,
+            activity_recent_days=config.activity_recent_days,
+            activity_stale_days=config.activity_stale_days,
+            activity_factor_recent=config.activity_factor_recent,
+            activity_factor_stale=config.activity_factor_stale,
+            activity_factor_old=config.activity_factor_old,
+            similar_bio_reason_min_cos_sim=config.similar_bio_reason_min_cos_sim,
+            max_reason_tags=config.max_reason_tags,
+        )
+
+    def feed_ranker(self) -> FeedRanker:
+        return FeedRanker(self.feed_scorer(), settings.feed.session_cap)
+
+    def feed_filter_validator(self) -> FeedFilterValidator:
+        return FeedFilterValidator(
+            taxonomy_repository=self.taxonomy_repo(),
+            timezone_catalog=self.timezone_catalog(),
+            allowed_country_codes=settings.profile.allowed_country_codes,
+        )
+
+    def feed_viewer_resolver(self) -> FeedViewerResolver:
+        return FeedViewerResolver(
+            profile_repository=self.profile_repo(),
+            profile_embedding_repository=self.profile_embedding_repo(),
+            current_embedding_model=self.current_embedding_model(),
+        )
 
     # ---------- use cases ----------
 
@@ -252,6 +321,36 @@ class Container:
         return DeleteProfileUseCase(
             profile_repository=self.profile_repo(),
             user_repository=self.user_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def get_feed_use_case(self) -> GetFeedUseCase:
+        return GetFeedUseCase(
+            viewer_resolver=self.feed_viewer_resolver(),
+            filter_validator=self.feed_filter_validator(),
+            feed_repository=self.feed_repo(),
+            session_repository=self.feed_session_repo(),
+            ranker=self.feed_ranker(),
+            timezone_catalog=self.timezone_catalog(),
+            current_embedding_model=self.current_embedding_model(),
+            scoring_fingerprint=settings.feed.scoring_fingerprint(),
+            bio_tier_min_cos_sim=settings.feed.bio_tier_min_cos_sim,
+        )
+
+    def get_feed_card_use_case(self) -> GetFeedCardUseCase:
+        return GetFeedCardUseCase(
+            viewer_resolver=self.feed_viewer_resolver(),
+            feed_repository=self.feed_repo(),
+            scorer=self.feed_scorer(),
+            timezone_catalog=self.timezone_catalog(),
+            current_embedding_model=self.current_embedding_model(),
+        )
+
+    def record_profile_view_use_case(self) -> RecordProfileViewUseCase:
+        return RecordProfileViewUseCase(
+            viewer_resolver=self.feed_viewer_resolver(),
+            feed_repository=self.feed_repo(),
+            profile_view_repository=self.profile_view_repo(),
             unit_of_work=self.unit_of_work(),
         )
 
