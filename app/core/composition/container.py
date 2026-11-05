@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,16 +24,19 @@ from app.application.use_cases import (
     GetProfileUseCase,
     GetRoleFieldsByRoleUseCase,
     GetRolesByCategoryUseCase,
+    OpenContactUseCase,
     PauseProfileUseCase,
     RecordProfileViewUseCase,
     ResumeProfileUseCase,
+    SendContactNotificationUseCase,
     SuggestTagsUseCase,
     SweepStaleEmbeddingsUseCase,
+    SweepStaleNotificationsUseCase,
     UpdateProfileUseCase,
     VerifyAccessTokenUseCase,
 )
 from app.core.config import settings
-from app.domain.interfaces import IEmbeddingProvider
+from app.domain.interfaces import IEmbeddingProvider, INotificationSender
 from app.domain.services import (
     ExtraAttributesValidator,
     FeedRanker,
@@ -39,11 +44,17 @@ from app.domain.services import (
     ProfileFormValidator,
     TagTitleValidator,
 )
-from app.infrastructure.providers import OpenAIEmbeddingProvider, StubEmbeddingProvider
-from app.infrastructure.queues import CeleryEmbeddingJobQueue
+from app.infrastructure.providers import (
+    OpenAIEmbeddingProvider,
+    StubEmbeddingProvider,
+    StubNotificationSender,
+    TelegramNotificationSender,
+)
+from app.infrastructure.queues import CeleryEmbeddingJobQueue, CeleryNotificationJobQueue
 from app.infrastructure.repositories import (
     RedisFeedSessionRepository,
     RedisTaxonomyCacheRepository,
+    SqlAlchemyContactOpenRepository,
     SqlAlchemyFeedRepository,
     SqlAlchemyProfileEmbeddingRepository,
     SqlAlchemyProfileRepository,
@@ -117,6 +128,9 @@ class Container:
     def profile_view_repo(self) -> SqlAlchemyProfileViewRepository:
         return SqlAlchemyProfileViewRepository(self.session)
 
+    def contact_open_repo(self) -> SqlAlchemyContactOpenRepository:
+        return SqlAlchemyContactOpenRepository(self.session)
+
     def feed_session_repo(self) -> RedisFeedSessionRepository:
         return RedisFeedSessionRepository(
             redis_client=self.redis_client,
@@ -153,6 +167,29 @@ class Container:
             celery_app=celery_app,
             queue_name=settings.embedding.queue_name,
             timeout_seconds=settings.embedding.enqueue_timeout_seconds,
+        )
+
+    # ---------- notifications ----------
+
+    def notification_sender(self) -> INotificationSender:
+        config = settings.notification
+        if config.provider == "stub":
+            return StubNotificationSender()
+        if not config.mini_app_url:
+            # Settings only enforces the URL in prod; outside it a missing one is reported here, by the worker.
+            raise RuntimeError("APP_CONFIG__NOTIFICATION__MINI_APP_URL is required for the telegram provider")
+        return TelegramNotificationSender(
+            token=settings.bot.token,
+            base_url=config.telegram_base_url,
+            mini_app_url=config.mini_app_url,
+            timeout_seconds=config.request_timeout_seconds,
+        )
+
+    def notification_queue(self) -> CeleryNotificationJobQueue:
+        return CeleryNotificationJobQueue(
+            celery_app=celery_app,
+            queue_name=settings.notification.queue_name,
+            timeout_seconds=settings.notification.enqueue_timeout_seconds,
         )
 
     # ---------- domain services ----------
@@ -352,6 +389,34 @@ class Container:
             feed_repository=self.feed_repo(),
             profile_view_repository=self.profile_view_repo(),
             unit_of_work=self.unit_of_work(),
+        )
+
+    def open_contact_use_case(self) -> OpenContactUseCase:
+        return OpenContactUseCase(
+            viewer_resolver=self.feed_viewer_resolver(),
+            contact_open_repository=self.contact_open_repo(),
+            user_repository=self.user_repo(),
+            notification_queue=self.notification_queue(),
+            unit_of_work=self.unit_of_work(),
+            daily_limit=settings.contact.daily_limit,
+            window=timedelta(hours=settings.contact.window_hours),
+        )
+
+    def send_contact_notification_use_case(self) -> SendContactNotificationUseCase:
+        return SendContactNotificationUseCase(
+            contact_open_repository=self.contact_open_repo(),
+            notification_sender=self.notification_sender(),
+            unit_of_work=self.unit_of_work(),
+            stale_after=timedelta(seconds=settings.notification.stale_after_seconds),
+        )
+
+    def sweep_stale_notifications_use_case(self) -> SweepStaleNotificationsUseCase:
+        return SweepStaleNotificationsUseCase(
+            contact_open_repository=self.contact_open_repo(),
+            notification_queue=self.notification_queue(),
+            unit_of_work=self.unit_of_work(),
+            pending_after=timedelta(seconds=settings.notification.sweep_pending_after_seconds),
+            batch_size=settings.notification.sweep_batch_size,
         )
 
     def embed_profile_use_case(self) -> EmbedProfileUseCase:

@@ -4,12 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import CTE, ColumnElement, Select
 
 from app.domain.entities import FeedCandidate, FeedCard, FeedFilters, FeedViewer, TagEntity
-from app.domain.enums import ProfileStatus, TagStatus
+from app.domain.enums import TagStatus
 from app.domain.interfaces import IFeedRepository
 from app.infrastructure.mappers.feed_mapper import map_feed_candidate_row_to_feed_candidate_entity
 from app.infrastructure.mappers.profile_mapper import map_profile_model_to_profile_entity
 from app.infrastructure.mappers.taxonomy_mapper import map_tag_model_to_tag_entity
+from app.infrastructure.repositories.profile_visibility import visible_to
 from app.infrastructure.models import (
+    ContactOpenModel,
     ProfileEmbeddingModel,
     ProfileModel,
     ProfileTagModel,
@@ -27,19 +29,6 @@ from app.infrastructure.models import (
 # `matched_filters` of the queries that have no search criteria (discovery, bio tier, one card). Postgres cannot
 # infer the type of a bare `ARRAY[]`, so the element type is given and it renders as `ARRAY[]::TEXT[]`.
 _NO_MATCHED_FILTERS = array([], type_=Text)
-
-
-def _visible_to(viewer: FeedViewer) -> list[ColumnElement[bool]]:
-    """The single definition of "who may appear in somebody else's feed"."""
-    return [
-        ProfileModel.status == ProfileStatus.ACTIVE,
-        UserModel.is_banned.is_(False),
-        UserModel.username.is_not(None),
-        UserModel.username != "",
-        UserModel.deleted_at.is_(None),
-        # All of the viewer's own profiles, not only the active one.
-        ProfileModel.user_id != viewer.user_id,
-    ]
 
 
 def _viewer_vector(viewer: FeedViewer, embedding_model: str) -> CTE:
@@ -109,7 +98,7 @@ def _select_candidates(
         .join(UserModel, UserModel.id == ProfileModel.user_id)
         .outerjoin(ProfileEmbeddingModel, ProfileEmbeddingModel.profile_id == ProfileModel.id)
         .outerjoin(viewer_vector, true())
-        .where(*_visible_to(viewer))
+        .where(*visible_to(viewer))
     )
 
 
@@ -228,18 +217,28 @@ class SqlAlchemyFeedRepository(IFeedRepository):
             ProfileViewModel.viewer_profile_id == viewer.profile_id,
             ProfileViewModel.viewed_profile_id == ProfileModel.id,
         )
+        is_contact_opened = exists().where(
+            ContactOpenModel.opener_profile_id == viewer.profile_id,
+            ContactOpenModel.opened_profile_id == ProfileModel.id,
+        )
         # Visibility is checked again: a profile may have been paused or banned since the session was built.
         rows = (
             await self._session.execute(
-                select(ProfileModel, UserModel.first_name, UserModel.photo_url, is_viewed.label("is_viewed"))
+                select(
+                    ProfileModel,
+                    UserModel.first_name,
+                    UserModel.photo_url,
+                    is_viewed.label("is_viewed"),
+                    is_contact_opened.label("is_contact_opened"),
+                )
                 .join(UserModel, UserModel.id == ProfileModel.user_id)
-                .where(ProfileModel.id.in_(profile_ids), *_visible_to(viewer))
+                .where(ProfileModel.id.in_(profile_ids), *visible_to(viewer))
             )
         ).all()
         if not rows:
             return []
 
-        visible_ids = [model.id for model, _, _, _ in rows]
+        visible_ids = [row[0].id for row in rows]
         tags: dict[int, list[TagEntity]] = {profile_id: [] for profile_id in visible_ids}
         tag_rows = await self._session.execute(
             select(ProfileTagModel.profile_id, TagModel)
@@ -256,8 +255,9 @@ class SqlAlchemyFeedRepository(IFeedRepository):
                 first_name=first_name,
                 photo_url=photo_url,
                 is_viewed=viewed,
+                is_contact_opened=contact_opened,
             )
-            for model, first_name, photo_url, viewed in rows
+            for model, first_name, photo_url, viewed, contact_opened in rows
         }
         # The order of the request, not of the database; what is not visible is simply absent.
         return [cards[profile_id] for profile_id in profile_ids if profile_id in cards]

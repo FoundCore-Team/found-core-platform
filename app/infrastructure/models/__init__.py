@@ -10,9 +10,11 @@ __all__ = [
     "ProfileTagModel",
     "ProfileEmbeddingModel",
     "ProfileViewModel",
+    "ContactOpenModel",
 ]
 
 from app.infrastructure.models.base import Base
+from app.infrastructure.models.contact_open import ContactOpenModel
 from app.infrastructure.models.profile import ProfileModel, ProfileTagModel
 from app.infrastructure.models.profile_embedding import ProfileEmbeddingModel
 from app.infrastructure.models.profile_view import ProfileViewModel

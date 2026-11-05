@@ -27,6 +27,11 @@ __all__ = [
     "FeedCard",
     "FeedPageItem",
     "FeedPage",
+    "ContactNotification",
+    "ContactNotificationContext",
+    "ContactOpenEntity",
+    "ContactWindowUsage",
+    "OpenedContact",
 ]
 
 from app.domain.entities.auth import (
@@ -34,6 +39,13 @@ from app.domain.entities.auth import (
     TelegramAuthResult,
     TelegramInitData,
     TelegramUserPayload,
+)
+from app.domain.entities.contact import (
+    ContactNotification,
+    ContactNotificationContext,
+    ContactOpenEntity,
+    ContactWindowUsage,
+    OpenedContact,
 )
 from app.domain.entities.feed import (
     FeedCandidate,

@@ -28,6 +28,10 @@ __all__ = [
     "InvalidFeedFilterError",
     "InvalidFeedCursorError",
     "FeedProfileNotFoundError",
+    "ContactProfileNotFoundError",
+    "ContactLimitReachedError",
+    "NotificationUnavailableError",
+    "NotificationRejectedError",
 ]
 
 from app.domain.exceptions.auth import (
@@ -37,6 +41,7 @@ from app.domain.exceptions.auth import (
     TokenExpiredError,
     TokenInvalidError,
 )
+from app.domain.exceptions.contact import ContactLimitReachedError, ContactProfileNotFoundError
 from app.domain.exceptions.embedding import (
     EmbeddingProviderUnavailableError,
     EmbeddingRejectedError,
@@ -49,6 +54,7 @@ from app.domain.exceptions.feed import (
     NoActiveProfileError,
     UsernameRequiredError,
 )
+from app.domain.exceptions.notification import NotificationRejectedError, NotificationUnavailableError
 from app.domain.exceptions.profile import (
     InvalidCountryError,
     InvalidExtraAttributesError,

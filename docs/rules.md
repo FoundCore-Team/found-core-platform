@@ -156,6 +156,16 @@ After making changes:
 * provide the exact commands the user should run to test or verify the changes manually;
 * do not claim that the changes were tested or verified unless the user ran the commands and provided the results.
 
+### Files
+
+* Read files only with the dedicated read tool and change them only with the edit/write tools. Do not read or modify files through shell commands (`cat`, `head`, `sed`, `awk`, `echo >`, heredocs, inline `python`/`perl` scripts), and do not rewrite several files with one script: every change is its own visible edit.
+
+### Git
+
+* Commit or push only when the user asks. Split the work into logical commits (config, domain, infrastructure, use cases and tests), each one importable on its own.
+* Commit messages follow the repository style (`feat(scope): ...`, `refactor(scope): ...`, `docs(scope): ...`, `test(scope): ...`): a short subject, and a bullet list when it helps.
+* **No `Co-Authored-By` trailer and no other attribution line** ("Generated with ...") in commit messages or pull request descriptions.
+
 ## 4. Tests
 
 * `tests/unit` must not need Postgres or Redis (use in-memory fakes); anything that touches them lives in `tests/integration`. Fixtures that `TRUNCATE`/`FLUSHDB` keep the guard that refuses to run against a database not ending in `_test_db` or Redis DB 0 — never weaken it.

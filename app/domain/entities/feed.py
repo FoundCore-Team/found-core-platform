@@ -103,6 +103,8 @@ class FeedCard:
     first_name: str
     photo_url: str | None
     is_viewed: bool
+    # The viewer's active profile has already opened this profile's contact (a free repeat `POST` gives the username).
+    is_contact_opened: bool = False
 
 
 @dataclass

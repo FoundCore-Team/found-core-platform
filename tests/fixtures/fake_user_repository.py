@@ -19,6 +19,7 @@ class FakeUserRepository(IUserRepository):
         self._users: dict[int, UserEntity] = {u.id: replace(u) for u in (users or [])}
         self._next_id = max(self._users, default=0) + 1
         self.lose_race_once = False
+        self.locked_user_ids: list[int] = []
 
     @property
     def users(self) -> list[UserEntity]:
@@ -57,6 +58,9 @@ class FakeUserRepository(IUserRepository):
 
     async def set_active_profile(self, user_id: int, profile_id: int | None) -> None:
         self._users[user_id].active_profile_id = profile_id
+
+    async def lock_for_update(self, user_id: int) -> None:
+        self.locked_user_ids.append(user_id)
 
     def _store(self, user: NewUserEntity) -> UserEntity:
         entity = UserEntity(

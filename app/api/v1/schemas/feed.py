@@ -8,7 +8,7 @@ from app.domain.enums import FeedEndReason, FeedReasonCode, FeedTier
 
 
 class FeedProfileSchema(BaseModel):
-    """The public part of a profile. Deliberately without `username` and `last_name`: the contact opens in stage 7."""
+    """The public part of a profile. Deliberately without `username` and `last_name`: the contact opens through `POST /profiles/{id}/contact`."""
 
     id: int
     first_name: str
@@ -58,6 +58,8 @@ class FeedItemSchema(BaseModel):
     match_type: FeedTier | None
     match_score: int
     is_viewed: bool
+    # The frontend shows "Write" instead of "Open contact"; the username itself comes from a free repeat POST.
+    is_contact_opened: bool
     reasons: list[FeedReasonSchema]
 
 

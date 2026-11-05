@@ -113,6 +113,7 @@ def map_feed_page_item_to_feed_item_schema(item: FeedPageItem) -> FeedItemSchema
         match_type=item.tier,
         match_score=item.match_score,
         is_viewed=item.card.is_viewed,
+        is_contact_opened=item.card.is_contact_opened,
         reasons=[reason for reason in reasons if reason is not None],
     )
 
