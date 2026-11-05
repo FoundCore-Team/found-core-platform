@@ -84,11 +84,31 @@ class ProfileConfig(BaseModel):
     allowed_country_codes: list[str] = []
 
 
-class EmbeddingConfig(BaseModel):
+class WorkerConfig(BaseModel):
     # Plain BaseModel for the same reason as RunConfig. `broker_url` has no default and no fallback to `redis.url`,
-    # so the Celery broker can never end up in the logical Redis DB that holds the cache by accident.
-    provider: Literal["stub", "openai"] = "stub"
+    # so the Celery broker can never end up in the logical Redis DB that holds the cache by accident. It is shared by
+    # every queue (embeddings, notifications): there is one `celery_app`.
     broker_url: str
+
+
+class ContactConfig(BaseModel):
+    # Plain BaseModel for the same reason as RunConfig.
+    # A sliding window per user (all of their profiles); repeated opens of one pair are free and not counted.
+    daily_limit: int = 20
+    window_hours: int = 24
+
+    @model_validator(mode="after")
+    def _check_consistency(self) -> "ContactConfig":
+        if self.daily_limit < 1:
+            raise ValueError("contact daily_limit must be positive")
+        if self.window_hours < 1:
+            raise ValueError("contact window_hours must be positive")
+        return self
+
+
+class EmbeddingConfig(BaseModel):
+    # Plain BaseModel for the same reason as RunConfig.
+    provider: Literal["stub", "openai"] = "stub"
     openai_api_key: SecretStr | None = None
     model: str = "text-embedding-3-small"
     openai_base_url: str = "https://api.openai.com/v1"
@@ -186,7 +206,9 @@ class Settings(BaseSettings):
     taxonomy: TaxonomyConfig = TaxonomyConfig()
     profile: ProfileConfig = ProfileConfig()
     feed: FeedConfig = FeedConfig()
-    embedding: EmbeddingConfig
+    contact: ContactConfig = ContactConfig()
+    worker: WorkerConfig
+    embedding: EmbeddingConfig = EmbeddingConfig()
 
     @staticmethod
     def _redis_location(url: str) -> tuple[str | None, int, str]:
@@ -211,8 +233,8 @@ class Settings(BaseSettings):
             problems.append("APP_CONFIG__EMBEDDING__PROVIDER must not be stub")
         elif self.embedding.openai_api_key is None or not self.embedding.openai_api_key.get_secret_value():
             problems.append("APP_CONFIG__EMBEDDING__OPENAI_API_KEY is required for the openai provider")
-        if self._redis_location(self.embedding.broker_url) == self._redis_location(str(self.redis.url)):
-            problems.append("APP_CONFIG__EMBEDDING__BROKER_URL must use a different Redis DB than APP_CONFIG__REDIS__URL")
+        if self._redis_location(self.worker.broker_url) == self._redis_location(str(self.redis.url)):
+            problems.append("APP_CONFIG__WORKER__BROKER_URL must use a different Redis DB than APP_CONFIG__REDIS__URL")
         if problems:
             raise ValueError("Refusing to start with env=prod: " + "; ".join(problems))
         return self

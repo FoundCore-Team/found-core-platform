@@ -54,11 +54,11 @@ def _refuse_to_run_against_non_test_data() -> None:
             returncode=2,
         )
     # The broker fixture flushes its DB too: never the dev cache (0) or the dev broker (2).
-    broker_db = urlsplit(settings.embedding.broker_url).path.lstrip("/") or "0"
+    broker_db = urlsplit(settings.worker.broker_url).path.lstrip("/") or "0"
     if broker_db in ("0", "2"):
         pytest.exit(
             f"Refusing to run: tests flush the Celery broker, but the configured broker DB is {broker_db} "
-            "(the dev cache or the dev broker). Use another DB number in APP_CONFIG__EMBEDDING__BROKER_URL in .env.test.",
+            "(the dev cache or the dev broker). Use another DB number in APP_CONFIG__WORKER__BROKER_URL in .env.test.",
             returncode=2,
         )
 
@@ -132,7 +132,7 @@ async def redis_client() -> AsyncIterator[Redis]:
 async def broker_client() -> AsyncIterator[Redis]:
     """Reads the test Celery broker (a Redis DB of its own). Flushed before and after, so a test sees
     only the jobs it enqueued itself, and no test depends on whether Redis was running for the others."""
-    client = Redis.from_url(settings.embedding.broker_url, decode_responses=True)
+    client = Redis.from_url(settings.worker.broker_url, decode_responses=True)
     await client.flushdb()
     yield client
     await client.flushdb()

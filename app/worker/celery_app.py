@@ -5,7 +5,7 @@ from app.core.config import settings
 EMBED_PROFILE_TASK = "embeddings.embed_profile"
 SWEEP_STALE_EMBEDDINGS_TASK = "embeddings.sweep_stale"
 
-celery_app = Celery("found_core", broker=settings.embedding.broker_url)
+celery_app = Celery("found_core", broker=settings.worker.broker_url)
 celery_app.conf.update(
     # Loaded by the worker and beat only: the web app sends tasks by name and never imports them.
     imports=("app.worker.tasks",),
