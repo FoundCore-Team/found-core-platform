@@ -58,3 +58,8 @@ class SqlAlchemyUserRepository(IUserRepository):
         await self._session.execute(
             update(UserModel).where(UserModel.id == user_id).values(active_profile_id=profile_id)
         )
+
+    async def lock_for_update(self, user_id: int) -> None:
+        # Selects only the id column, not the model: nothing is loaded into the session's identity map, so there is no
+        # stale object to confuse a later read. The lock is held until the transaction commits or rolls back.
+        await self._session.execute(select(UserModel.id).where(UserModel.id == user_id).with_for_update())

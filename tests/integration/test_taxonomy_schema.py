@@ -76,6 +76,33 @@ async def test_profile_embeddings_sweep_index_covers_only_unfinished_rows(sessio
     assert any("ix_profile_embeddings_status_updated_at" in d and "ready" in d and "WHERE" in d for d in defs)
 
 
+async def test_contact_opens_has_a_pair_primary_key_and_an_index_on_the_opened_profile(session):
+    defs = await _index_defs(session, "contact_opens")
+
+    assert any("pk_contact_opens" in d and "(opener_profile_id, opened_profile_id)" in d for d in defs)
+    assert any("ix_contact_opens_opened_profile_id" in d and "(opened_profile_id)" in d for d in defs)
+
+
+async def test_contact_opens_sweep_index_covers_only_pending_rows(session):
+    defs = await _index_defs(session, "contact_opens")
+
+    assert any(
+        "ix_contact_opens_pending_updated_at" in d and "(notification_updated_at)" in d and "pending" in d and "WHERE" in d
+        for d in defs
+    )
+
+
+async def test_notification_status_enum_has_the_four_states(session):
+    result = await session.execute(
+        text(
+            "SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid "
+            "WHERE t.typname = 'notification_status' ORDER BY e.enumsortorder"
+        )
+    )
+
+    assert [row[0] for row in result.all()] == ["pending", "sent", "failed", "skipped"]
+
+
 async def test_nearest_neighbour_query_uses_the_hnsw_index(session):
     zeros = "[" + ",".join(["0"] * 1536) + "]"
     # On an empty table the planner would prefer a plain scan, which says nothing about the index.

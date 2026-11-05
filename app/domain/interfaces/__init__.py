@@ -1,5 +1,6 @@
 __all__ = [
     "IUserRepository",
+    "IContactOpenRepository",
     "IFeedRepository",
     "IFeedSessionRepository",
     "IProfileViewRepository",
@@ -12,6 +13,7 @@ __all__ = [
     "IUnitOfWork",
 ]
 
+from app.domain.interfaces.contact_open import IContactOpenRepository
 from app.domain.interfaces.embedding_provider import IEmbeddingProvider
 from app.domain.interfaces.embedding_queue import IEmbeddingJobQueue
 from app.domain.interfaces.feed import IFeedRepository

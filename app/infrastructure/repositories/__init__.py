@@ -7,8 +7,10 @@ __all__ = [
     "RedisTaxonomyCacheRepository",
     "RedisFeedSessionRepository",
     "SqlAlchemyProfileViewRepository",
+    "SqlAlchemyContactOpenRepository",
 ]
 
+from app.infrastructure.repositories.sqlalchemy_contact_open import SqlAlchemyContactOpenRepository
 from app.infrastructure.repositories.redis_feed_session import RedisFeedSessionRepository
 from app.infrastructure.repositories.redis_taxonomy_cache import RedisTaxonomyCacheRepository
 from app.infrastructure.repositories.sqlalchemy_feed import SqlAlchemyFeedRepository

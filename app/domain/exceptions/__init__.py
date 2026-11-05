@@ -28,6 +28,8 @@ __all__ = [
     "InvalidFeedFilterError",
     "InvalidFeedCursorError",
     "FeedProfileNotFoundError",
+    "ContactProfileNotFoundError",
+    "ContactLimitReachedError",
 ]
 
 from app.domain.exceptions.auth import (
@@ -37,6 +39,7 @@ from app.domain.exceptions.auth import (
     TokenExpiredError,
     TokenInvalidError,
 )
+from app.domain.exceptions.contact import ContactLimitReachedError, ContactProfileNotFoundError
 from app.domain.exceptions.embedding import (
     EmbeddingProviderUnavailableError,
     EmbeddingRejectedError,
