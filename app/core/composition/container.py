@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +18,7 @@ from app.application.use_cases import (
     EmbedProfileUseCase,
     GetCategoriesUseCase,
     GetFeedCardUseCase,
+    OpenContactUseCase,
     GetFeedUseCase,
     GetMyProfilesUseCase,
     GetProfileFormConfigUseCase,
@@ -44,6 +47,7 @@ from app.infrastructure.queues import CeleryEmbeddingJobQueue
 from app.infrastructure.repositories import (
     RedisFeedSessionRepository,
     RedisTaxonomyCacheRepository,
+    SqlAlchemyContactOpenRepository,
     SqlAlchemyFeedRepository,
     SqlAlchemyProfileEmbeddingRepository,
     SqlAlchemyProfileRepository,
@@ -116,6 +120,9 @@ class Container:
 
     def profile_view_repo(self) -> SqlAlchemyProfileViewRepository:
         return SqlAlchemyProfileViewRepository(self.session)
+
+    def contact_open_repo(self) -> SqlAlchemyContactOpenRepository:
+        return SqlAlchemyContactOpenRepository(self.session)
 
     def feed_session_repo(self) -> RedisFeedSessionRepository:
         return RedisFeedSessionRepository(
@@ -352,6 +359,16 @@ class Container:
             feed_repository=self.feed_repo(),
             profile_view_repository=self.profile_view_repo(),
             unit_of_work=self.unit_of_work(),
+        )
+
+    def open_contact_use_case(self) -> OpenContactUseCase:
+        return OpenContactUseCase(
+            viewer_resolver=self.feed_viewer_resolver(),
+            contact_open_repository=self.contact_open_repo(),
+            user_repository=self.user_repo(),
+            unit_of_work=self.unit_of_work(),
+            daily_limit=settings.contact.daily_limit,
+            window=timedelta(hours=settings.contact.window_hours),
         )
 
     def embed_profile_use_case(self) -> EmbedProfileUseCase:

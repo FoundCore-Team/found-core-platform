@@ -20,9 +20,11 @@ __all__ = [
     "GetFeedUseCase",
     "GetFeedCardUseCase",
     "RecordProfileViewUseCase",
+    "OpenContactUseCase",
 ]
 
 from app.application.use_cases.auth import AuthenticateTelegramUserUseCase, VerifyAccessTokenUseCase
+from app.application.use_cases.contact import OpenContactUseCase
 from app.application.use_cases.embedding import EmbedProfileUseCase, SweepStaleEmbeddingsUseCase
 from app.application.use_cases.feed import GetFeedCardUseCase, GetFeedUseCase, RecordProfileViewUseCase
 from app.application.use_cases.profile import (
