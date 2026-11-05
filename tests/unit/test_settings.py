@@ -16,6 +16,7 @@ def _settings(**overrides) -> Settings:
         "run": {"env": "prod", "reload": False},
         "worker": {"broker_url": "redis://localhost:6379/2"},
         "embedding": {"provider": "openai", "openai_api_key": "sk-test-key"},
+        "notification": {"provider": "telegram", "mini_app_url": "https://app.example.com"},
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
@@ -63,6 +64,7 @@ def test_production_reports_every_problem_at_once():
 
     message = str(error.value)
     assert "SECRET_KEY" in message and "BOT__TOKEN" in message and "RELOAD" in message
+    assert "NOTIFICATION" not in message  # the default fixture values are valid, so only the three above fail
 
 
 def test_production_refuses_the_stub_embedding_provider():
@@ -115,6 +117,53 @@ def test_broker_url_is_required(monkeypatch):
             bot={"token": REAL_BOT_TOKEN},
             embedding={"provider": "stub"},
         )
+
+
+def test_production_refuses_the_stub_notification_provider():
+    with pytest.raises(ValidationError, match="NOTIFICATION__PROVIDER must not be stub"):
+        _settings(notification={"provider": "stub", "mini_app_url": "https://app.example.com"})
+
+
+@pytest.mark.parametrize("mini_app_url", [None, ""])
+def test_production_requires_a_mini_app_url(mini_app_url):
+    with pytest.raises(ValidationError, match="MINI_APP_URL is required"):
+        _settings(notification={"provider": "telegram", "mini_app_url": mini_app_url})
+
+
+@pytest.mark.parametrize("mini_app_url", ["http://app.example.com", "app.example.com", "ftp://app.example.com"])
+def test_production_requires_an_https_mini_app_url(mini_app_url):
+    with pytest.raises(ValidationError, match="MINI_APP_URL must be an https URL"):
+        _settings(notification={"provider": "telegram", "mini_app_url": mini_app_url})
+
+
+def test_stub_notifications_and_no_mini_app_url_are_fine_outside_production():
+    settings = _settings(run={"env": "dev", "reload": True}, notification={"provider": "stub"})
+
+    assert settings.notification.provider == "stub"
+    assert settings.notification.mini_app_url is None
+
+
+def test_notification_defaults():
+    config = _settings().notification
+
+    assert (config.task_max_retries, config.retry_base_delay_seconds, config.request_timeout_seconds) == (5, 5, 10.0)
+    assert (config.sweep_interval_seconds, config.sweep_pending_after_seconds, config.sweep_batch_size) == (60, 120, 100)
+    assert (config.stale_after_seconds, config.queue_name) == (86400, "notifications")
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"sweep_interval_seconds": 0},
+        {"sweep_pending_after_seconds": 0},
+        {"sweep_batch_size": 0},
+        {"stale_after_seconds": 0},
+        {"task_max_retries": -1},
+    ],
+)
+def test_notification_config_rejects_invalid_values(override):
+    with pytest.raises(ValidationError):
+        _settings(notification={"provider": "telegram", "mini_app_url": "https://app.example.com", **override})
 
 
 def test_contact_limit_defaults():

@@ -16,6 +16,40 @@ class ContactOpenEntity:
 
 
 @dataclass
+class ContactNotification:
+    """Everything the text and the button of a "someone opened your contact" message are made of."""
+
+    # Where it goes: `users.telegram_id` of the profile's owner is also their private chat id with the bot.
+    owner_telegram_id: int
+    opener_profile_id: int
+    opener_first_name: str
+    opener_last_name: str | None
+    opener_username: str
+    # "Category · Role" of the opener's profile and of the owner's profile.
+    opener_category_title: str
+    opener_role_title: str
+    owner_category_title: str
+    owner_role_title: str
+
+
+@dataclass
+class ContactNotificationContext:
+    """The open plus the current state of both people, read at send time (not when the open happened).
+
+    The worker may run minutes after the open (retries, sweep), so it decides on fresh facts: see
+    `SendContactNotificationUseCase`.
+    """
+
+    notification_status: NotificationStatus
+    created_at: datetime
+    opener_is_banned: bool
+    opener_is_deleted: bool
+    owner_is_banned: bool
+    owner_is_deleted: bool
+    notification: ContactNotification
+
+
+@dataclass
 class ContactWindowUsage:
     """How much of the daily limit a user has used: first-time opens inside the sliding window."""
 

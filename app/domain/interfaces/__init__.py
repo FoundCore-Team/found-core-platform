@@ -10,6 +10,8 @@ __all__ = [
     "IProfileEmbeddingRepository",
     "IEmbeddingProvider",
     "IEmbeddingJobQueue",
+    "INotificationSender",
+    "INotificationJobQueue",
     "IUnitOfWork",
 ]
 
@@ -18,6 +20,8 @@ from app.domain.interfaces.embedding_provider import IEmbeddingProvider
 from app.domain.interfaces.embedding_queue import IEmbeddingJobQueue
 from app.domain.interfaces.feed import IFeedRepository
 from app.domain.interfaces.feed_session import IFeedSessionRepository
+from app.domain.interfaces.notification_queue import INotificationJobQueue
+from app.domain.interfaces.notification_sender import INotificationSender
 from app.domain.interfaces.profile_view import IProfileViewRepository
 from app.domain.interfaces.profile import IProfileRepository
 from app.domain.interfaces.profile_embedding import IProfileEmbeddingRepository

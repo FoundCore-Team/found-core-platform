@@ -106,6 +106,36 @@ class ContactConfig(BaseModel):
         return self
 
 
+class NotificationConfig(BaseModel):
+    # Plain BaseModel for the same reason as RunConfig.
+    # stub writes the text to the log; telegram calls the Bot API with `BotConfig.token`.
+    provider: Literal["stub", "telegram"] = "stub"
+    # Base of the "Open profile" button: `{mini_app_url}?profile_id=<opener profile id>`. Required in prod, https only.
+    mini_app_url: str | None = None
+    telegram_base_url: str = "https://api.telegram.org"
+    request_timeout_seconds: float = 10.0
+    enqueue_timeout_seconds: float = 0.5
+    queue_name: str = "notifications"
+    task_max_retries: int = 5
+    task_time_limit_seconds: int = 60
+    # Backoff is `retry_base_delay_seconds * 2**n`, or Telegram's `retry_after` if that is longer.
+    retry_base_delay_seconds: int = 5
+    sweep_interval_seconds: int = 60
+    sweep_pending_after_seconds: int = 120
+    sweep_batch_size: int = 100
+    # A notification that is still pending after this long is dropped (`skipped`): late news looks like spam.
+    stale_after_seconds: int = 86400
+
+    @model_validator(mode="after")
+    def _check_consistency(self) -> "NotificationConfig":
+        if self.task_max_retries < 0:
+            raise ValueError("notification task_max_retries must not be negative")
+        for name in ("sweep_interval_seconds", "sweep_pending_after_seconds", "sweep_batch_size", "stale_after_seconds"):
+            if getattr(self, name) < 1:
+                raise ValueError(f"notification {name} must be positive")
+        return self
+
+
 class EmbeddingConfig(BaseModel):
     # Plain BaseModel for the same reason as RunConfig.
     provider: Literal["stub", "openai"] = "stub"
@@ -209,6 +239,7 @@ class Settings(BaseSettings):
     contact: ContactConfig = ContactConfig()
     worker: WorkerConfig
     embedding: EmbeddingConfig = EmbeddingConfig()
+    notification: NotificationConfig = NotificationConfig()
 
     @staticmethod
     def _redis_location(url: str) -> tuple[str | None, int, str]:
@@ -233,6 +264,13 @@ class Settings(BaseSettings):
             problems.append("APP_CONFIG__EMBEDDING__PROVIDER must not be stub")
         elif self.embedding.openai_api_key is None or not self.embedding.openai_api_key.get_secret_value():
             problems.append("APP_CONFIG__EMBEDDING__OPENAI_API_KEY is required for the openai provider")
+        if self.notification.provider == "stub":
+            problems.append("APP_CONFIG__NOTIFICATION__PROVIDER must not be stub")
+        if not self.notification.mini_app_url:
+            problems.append("APP_CONFIG__NOTIFICATION__MINI_APP_URL is required")
+        elif urlsplit(self.notification.mini_app_url).scheme != "https":
+            # Telegram refuses a web_app button that is not https, which would fail every notification.
+            problems.append("APP_CONFIG__NOTIFICATION__MINI_APP_URL must be an https URL")
         if self._redis_location(self.worker.broker_url) == self._redis_location(str(self.redis.url)):
             problems.append("APP_CONFIG__WORKER__BROKER_URL must use a different Redis DB than APP_CONFIG__REDIS__URL")
         if problems:

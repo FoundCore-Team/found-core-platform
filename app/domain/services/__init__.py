@@ -1,9 +1,11 @@
 __all__ = [
+    "CONTACT_NOTIFICATION_BUTTON_TEXT",
     "ExtraAttributesValidator",
     "FeedRanker",
     "FeedScorer",
     "ProfileFormValidator",
     "TagTitleValidator",
+    "build_contact_notification_text",
     "build_embedding_input",
     "build_feed_params_hash",
     "build_feed_session_key",
@@ -12,6 +14,10 @@ __all__ = [
     "normalize_tag_title",
 ]
 
+from app.domain.services.contact_notification_text import (
+    CONTACT_NOTIFICATION_BUTTON_TEXT,
+    build_contact_notification_text,
+)
 from app.domain.services.embedding_input_builder import build_embedding_input, compute_input_hash
 from app.domain.services.extra_attributes_validator import ExtraAttributesValidator
 from app.domain.services.feed_ranker import FeedRanker
