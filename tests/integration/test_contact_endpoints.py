@@ -1,16 +1,21 @@
 """POST /profiles/{id}/contact over real HTTP, Postgres and Redis, including the races the plan promises to close."""
 
 import asyncio
+import base64
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from celery import Celery
 from sqlalchemy import delete, select, text
 
+import app.core.composition.container as container_module
 from app.core.config import settings
 from app.domain.enums import NotificationStatus, ProfileStatus
 from app.infrastructure.models import ContactOpenModel, ProfileModel
 from tests.fixtures.auth import create_user_with_headers
 from tests.fixtures.db_ops import set_user_banned
+from app.worker.celery_app import SEND_CONTACT_NOTIFICATION_TASK
 from tests.fixtures.feed_data import add_profile, add_user
 from tests.integration.test_feed_endpoints import Viewer, add_candidate, fetch, make_viewer
 
@@ -291,6 +296,59 @@ async def test_parallel_opens_of_different_profiles_at_the_limit_make_exactly_li
     codes = sorted(r.status_code for r in responses)
     assert codes == [201] * 3 + [429] * 5
     assert len(await contact_rows(session)) == 3
+
+
+# ---------- the notification job ----------
+
+
+@pytest.fixture
+def patient_enqueue(monkeypatch) -> None:
+    # The production enqueue timeout is short on purpose; a slow first connection on a developer machine must not make
+    # the tests that look into the broker flaky.
+    monkeypatch.setattr(settings.notification, "enqueue_timeout_seconds", 5.0)
+
+
+async def test_the_first_open_puts_one_job_on_the_notifications_queue(
+    taxonomy_client, viewer, anna, broker_client, patient_enqueue
+):
+    await open_contact(taxonomy_client, viewer, anna)
+
+    messages = await broker_client.lrange(settings.notification.queue_name, 0, -1)
+    assert len(messages) == 1
+    message = json.loads(messages[0])
+    assert message["headers"]["task"] == SEND_CONTACT_NOTIFICATION_TASK
+    args, kwargs, _ = json.loads(base64.b64decode(message["body"]))
+    assert (args, kwargs) == ([viewer.profile_id, anna], {})
+
+
+async def test_a_repeat_puts_no_second_job(taxonomy_client, viewer, anna, broker_client, patient_enqueue):
+    await open_contact(taxonomy_client, viewer, anna)
+    await open_contact(taxonomy_client, viewer, anna)
+
+    assert await broker_client.llen(settings.notification.queue_name) == 1
+
+
+async def test_a_refused_open_puts_no_job(session, taxonomy_client, viewer, broker_client, patient_enqueue):
+    await open_contact(taxonomy_client, viewer, 987654)
+
+    assert await broker_client.llen(settings.notification.queue_name) == 0
+
+
+async def test_the_open_is_201_and_the_row_pending_while_the_broker_is_down(
+    session, taxonomy_client, viewer, anna, monkeypatch
+):
+    dead_app = Celery("dead", broker="redis://127.0.0.1:1/0")
+    dead_app.conf.update(
+        broker_connection_timeout=0.2,
+        broker_transport_options={"socket_connect_timeout": 0.2},
+    )
+    monkeypatch.setattr(container_module, "celery_app", dead_app)
+
+    response = await open_contact(taxonomy_client, viewer, anna)
+
+    assert response.status_code == 201
+    [row] = await contact_rows(session)
+    assert row.notification_status is NotificationStatus.PENDING
 
 
 # ---------- the cascade ----------

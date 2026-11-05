@@ -9,6 +9,7 @@ from app.domain.enums import EmbeddingStatus, NotificationStatus, ProfileStatus
 from app.domain.exceptions import ContactLimitReachedError, ContactProfileNotFoundError, NoActiveProfileError
 from tests.fixtures.factories import make_profile_entity, make_user_entity
 from tests.fixtures.fake_contact_open_repository import FakeContactOpenRepository
+from tests.fixtures.fake_notification import FakeNotificationQueue
 from tests.fixtures.fake_profile_embedding_repository import FakeProfileEmbeddingRepository
 from tests.fixtures.fake_profile_repository import FakeProfileRepository
 from tests.fixtures.fake_unit_of_work import FakeUnitOfWork
@@ -38,10 +39,12 @@ class Env:
             owner_of_opener={VIEWER_PROFILE: 1, 99: 1},
         )
         self.uow = FakeUnitOfWork()
+        self.queue = FakeNotificationQueue()
         self.use_case = OpenContactUseCase(
             viewer_resolver=FeedViewerResolver(self.profiles, embeddings, MODEL),
             contact_open_repository=self.contacts,
             user_repository=self.users,
+            notification_queue=self.queue,
             unit_of_work=self.uow,
             daily_limit=limit,
             window=WINDOW,
@@ -88,6 +91,14 @@ async def test_the_open_takes_the_row_lock_of_the_user_before_counting():
     assert env.users.locked_user_ids == [1]
 
 
+async def test_the_notification_is_enqueued_once_for_the_pair_after_the_commit():
+    env = Env()
+
+    await env.open(201)
+
+    assert env.queue.enqueued == [(VIEWER_PROFILE, 201)]
+
+
 # ---------- a repeat is free ----------
 
 
@@ -102,6 +113,7 @@ async def test_a_repeat_returns_the_username_without_a_record_a_commit_or_a_lock
     assert (contact.username, contact.is_new_open) == ("anna", False)
     assert contact.remaining_today == LIMIT - 1  # unchanged
     assert (env.uow.commits, env.contacts.add_calls, env.users.locked_user_ids) == (commits, adds, [])
+    assert env.queue.enqueued == [(VIEWER_PROFILE, 201)]  # no second notification
 
 
 async def test_a_repeat_works_when_the_limit_is_exhausted():
@@ -160,6 +172,7 @@ async def test_the_open_over_the_limit_raises_with_the_reset_time_of_the_oldest_
     assert error.value.limit == LIMIT
     assert error.value.resets_at == oldest + WINDOW
     assert env.contacts.add_calls == 0 and env.uow.commits == 0
+    assert env.queue.enqueued == []
 
 
 async def test_opens_older_than_the_window_do_not_count():
