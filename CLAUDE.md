@@ -13,7 +13,7 @@ FoundCore is a Telegram Mini App + bot for networking. It connects people across
 
 The original product spec (a `.docx` kept outside this repo) is summarized in this file; if a product or architecture decision isn't covered here, ask rather than guess.
 
-**This iteration builds backend only** — no frontend work.
+**The backend is built in `app/`; the Telegram Mini App frontend lives in [`frontend/`](frontend/)** and has its own [`CLAUDE.md`](frontend/CLAUDE.md), [`docs/rules.md`](frontend/docs/rules.md) and plans ([`docs/plans/overview.md`](frontend/docs/plans/overview.md)). Unless a section says otherwise, everything below describes the backend.
 
 **Key pivot — no swipes.** The original swipe/mutual-match concept (Like/Skip, contact revealed only on mutual like) is cancelled. The current mechanic is a **feed with filters and search**: a user browses recommendations and/or applies filters; a contact opens immediately on button press, with no reciprocity required. The only feedback loop is a notification to the profile owner that "someone opened your contact" — there are no likes or matches.
 
