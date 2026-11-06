@@ -78,7 +78,7 @@
 CLAUDE.md                                 (корень) строка «backend only» заменена ссылкой на frontend/CLAUDE.md
 frontend/
   package.json  package-lock.json  .nvmrc  .env.example  .gitignore  README.md
-  tsconfig.json  tsconfig.node.json  vite.config.ts  eslint.config.js  .prettierrc  index.html
+  tsconfig.json  vite.config.ts  eslint.config.js  .prettierrc  .prettierignore  index.html
   src/
     main.tsx
     app/
@@ -152,7 +152,11 @@ npm run build
 - Подтверждение владельцем бэкенда: отдельный CI-джоб, `/openapi.json` в dev.
 - F1: полный набор компонентов, карта экранов, решение по шрифту.
 - Проверить, что поведение history-роутера с параметрами запуска Telegram не требует других настроек в nginx (`try_files` для SPA) на этапе F9.
+- ESLint 9.x npm помечает как неподдерживаемый (`eslint@9.39.5`, предупреждение при `npm install`). Остаёмся на 9, пока `eslint-plugin-jsx-a11y` не поддерживает ESLint 10; тогда перейти и убрать ограничение из `frontend/CLAUDE.md`.
+- `npm audit` показывает 7 уязвимостей средней тяжести: `minimatch` внутри `typescript-eslint` (DoS через glob). Это инструмент разработки, он не попадает в сборку. `npm audit fix --force` откатил бы `typescript-eslint` на 8.36 и сломал совместимость, поэтому не применяется; пересмотреть при следующем обновлении `typescript-eslint`.
 
 ## 9. Отклонения
 
-Пока нет.
+1. **Один `tsconfig.json`, без `tsconfig.node.json`.** `vite.config.ts` входит в основной проект (`include`), типы `node` подключены там же. Почему: типизированный линтер (`projectService`) должен находить проект для каждого проверяемого файла, а второй tsconfig под один файл усложняет и сборку, и линтер. Что отброшено: отдельный `tsconfig.node.json` со ссылками.
+2. **Добавлен `.prettierignore`** (`dist`, `coverage`, `package-lock.json`, сгенерированная схема), чтобы `npm run format` не трогал сгенерированные файлы.
+3. **Скрипт `test` временно с `--passWithNoTests`**, пока в проекте нет ни одного теста (часть 1). Флаг убирается в части 2, когда появляются тесты.
