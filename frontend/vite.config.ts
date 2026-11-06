@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    preview: {
+      // Real Telegram opens the app through an https tunnel, which serves it under a changing
+      // trycloudflare.com host; the preview server rejects hosts it does not know.
+      allowedHosts: ['.trycloudflare.com'],
+    },
     test: {
       environment: 'jsdom',
       setupFiles: ['./tests/setup.ts'],
