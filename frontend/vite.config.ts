@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react';
+import { msw } from 'msw/vite';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 
@@ -6,7 +7,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
-    plugins: [react()],
+    // msw() serves the worker script in development; it is emitted only next to a bundle that
+    // imports `virtual:msw`, and main.tsx imports it under `import.meta.env.DEV`.
+    plugins: [react(), msw()],
     server: {
       // The browser calls a relative /api, so the backend needs no CORS in development.
       proxy: {
