@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.v1.dependencies.auth import require_admin
 from app.api.v1.mappers.moderation import map_admin_actions_to_admin_action_page_schema
@@ -26,7 +26,7 @@ async def list_admin_actions(
 ) -> AdminActionPageSchema:
     # An id means nothing without the kind of row it belongs to.
     if target_id is not None and target_type is None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="target_id needs target_type.")
+        raise HTTPException(status_code=422, detail="target_id needs target_type.")
 
     actions, total = await container.list_admin_actions_use_case().execute(limit, offset, target_type, target_id)
     return map_admin_actions_to_admin_action_page_schema(actions, total, limit, offset)

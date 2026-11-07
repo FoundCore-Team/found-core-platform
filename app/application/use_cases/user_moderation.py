@@ -91,7 +91,9 @@ class BanUserUseCase:
                 raise CannotBanAdminError()
             if current.is_banned:
                 return current
-            # Not reachable: the conditional UPDATE failed, so one of the cases above must hold.
+            # Only if other requests banned the user and lifted the ban again between our two reads: this request
+            # changed nothing and "not found" is not really true. TODO: decide what to answer here (retry the write
+            # once, or a 409); it takes two more admins acting on the same user at the same instant.
             raise UserNotFoundError()
 
         await self._admin_action_repository.add(
