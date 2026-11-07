@@ -12,6 +12,7 @@ from app.application.services.timezone_catalog import TimezoneCatalog
 from app.application.use_cases import (
     ActivateProfileUseCase,
     AuthenticateTelegramUserUseCase,
+    BanUserUseCase,
     CreateCustomTagUseCase,
     CreateProfileUseCase,
     DeleteProfileUseCase,
@@ -29,9 +30,11 @@ from app.application.use_cases import (
     RecordProfileViewUseCase,
     ResumeProfileUseCase,
     SendContactNotificationUseCase,
+    SetAdminUseCase,
     SuggestTagsUseCase,
     SweepStaleEmbeddingsUseCase,
     SweepStaleNotificationsUseCase,
+    UnbanUserUseCase,
     UpdateProfileUseCase,
     VerifyAccessTokenUseCase,
 )
@@ -54,6 +57,7 @@ from app.infrastructure.queues import CeleryEmbeddingJobQueue, CeleryNotificatio
 from app.infrastructure.repositories import (
     RedisFeedSessionRepository,
     RedisTaxonomyCacheRepository,
+    SqlAlchemyAdminActionRepository,
     SqlAlchemyContactOpenRepository,
     SqlAlchemyFeedRepository,
     SqlAlchemyProfileEmbeddingRepository,
@@ -106,6 +110,9 @@ class Container:
 
     def user_repo(self) -> SqlAlchemyUserRepository:
         return SqlAlchemyUserRepository(self.session)
+
+    def admin_action_repo(self) -> SqlAlchemyAdminActionRepository:
+        return SqlAlchemyAdminActionRepository(self.session)
 
     def taxonomy_repo(self) -> SqlAlchemyTaxonomyRepository:
         return SqlAlchemyTaxonomyRepository(self.session, suggest_limit=settings.taxonomy.suggest_limit)
@@ -271,6 +278,27 @@ class Container:
         return VerifyAccessTokenUseCase(
             user_repository=self.user_repo(),
             jwt_service=self.jwt_service(),
+        )
+
+    def set_admin_use_case(self) -> SetAdminUseCase:
+        return SetAdminUseCase(
+            user_repository=self.user_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def ban_user_use_case(self) -> BanUserUseCase:
+        return BanUserUseCase(
+            user_repository=self.user_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def unban_user_use_case(self) -> UnbanUserUseCase:
+        return UnbanUserUseCase(
+            user_repository=self.user_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
         )
 
     def get_categories_use_case(self) -> GetCategoriesUseCase:

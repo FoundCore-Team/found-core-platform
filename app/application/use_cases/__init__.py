@@ -23,6 +23,9 @@ __all__ = [
     "OpenContactUseCase",
     "SendContactNotificationUseCase",
     "SweepStaleNotificationsUseCase",
+    "SetAdminUseCase",
+    "BanUserUseCase",
+    "UnbanUserUseCase",
 ]
 
 from app.application.use_cases.auth import AuthenticateTelegramUserUseCase, VerifyAccessTokenUseCase
@@ -51,3 +54,4 @@ from app.application.use_cases.taxonomy import (
     GetRolesByCategoryUseCase,
     SuggestTagsUseCase,
 )
+from app.application.use_cases.user_moderation import BanUserUseCase, SetAdminUseCase, UnbanUserUseCase
