@@ -11,8 +11,10 @@ __all__ = [
     "ProfileEmbeddingModel",
     "ProfileViewModel",
     "ContactOpenModel",
+    "AdminActionModel",
 ]
 
+from app.infrastructure.models.admin_action import AdminActionModel
 from app.infrastructure.models.base import Base
 from app.infrastructure.models.contact_open import ContactOpenModel
 from app.infrastructure.models.profile import ProfileModel, ProfileTagModel

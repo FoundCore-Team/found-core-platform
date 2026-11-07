@@ -213,7 +213,7 @@ op.execute("DROP TYPE tag_status_old")
 ### 3.4. Репозитории: новые методы
 
 - `IUserRepository`: `set_ban(user_id, reason) -> UserEntity | None` (поднимает `token_version`), `clear_ban(user_id)`, `set_admin(user_id, is_admin)` — условные `UPDATE ... RETURNING` с `populate_existing`; условия: бан — `is_banned = false AND is_admin = false AND deleted_at IS NULL`, разбан — `is_banned = true`, выдача — `is_admin = false AND is_banned = false`, отзыв — `is_admin = true`. Узкие методы, потому что `update()` пишет только поля Telegram.
-- `IAdminActionRepository`: `add`, `list(limit, offset, target_type, target_id)`, `count(target_type, target_id)`.
+- `IAdminActionRepository`: `add`, `list_actions(limit, offset, target_type, target_id)`, `count(target_type, target_id)`. Метод назван `list_actions`, а не `list`: имя `list` внутри класса затеняет встроенный тип в аннотациях.
 - `IReportRepository`: `is_profile_visible_to`, `create -> ReportEntity | None`, `get_open_by_reporter_and_profile`, `list_open_groups(limit, offset)`, `count_open_groups`, `list_open_by_profile` (`created_at, id`), `close_open_for_profile(profile_id, status) -> int`, `resolve_open_for_user(user_id) -> int`. Группы — `GROUP BY profile_id` с join на анкету и владельца, разбивка по причинам — вторым запросом для id страницы.
 - `IProfileRepository`: `set_status -> bool`, `hide -> bool`, `unhide -> bool`, `detach_tag(tag_id) -> list[int]`, `replace_tag(source, target) -> list[int]`, `touch(profile_ids) -> dict[int, datetime]`.
 - `IProfileEmbeddingRepository`: `mark_pending_many(sources: dict[int, datetime])` — тот же upsert, что `mark_pending`, пачкой.
