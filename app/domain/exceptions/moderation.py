@@ -1,3 +1,10 @@
+class AdminRequiredError(Exception):
+    message = "Admin access required."
+
+    def __init__(self) -> None:
+        super().__init__(self.message)
+
+
 class UserNotFoundError(Exception):
     # Also raised for a user who is marked deleted.
     message = "User not found."

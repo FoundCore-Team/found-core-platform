@@ -25,6 +25,7 @@ from app.application.use_cases import (
     GetProfileUseCase,
     GetRoleFieldsByRoleUseCase,
     GetRolesByCategoryUseCase,
+    ListAdminActionsUseCase,
     OpenContactUseCase,
     PauseProfileUseCase,
     RecordProfileViewUseCase,
@@ -300,6 +301,9 @@ class Container:
             admin_action_repository=self.admin_action_repo(),
             unit_of_work=self.unit_of_work(),
         )
+
+    def list_admin_actions_use_case(self) -> ListAdminActionsUseCase:
+        return ListAdminActionsUseCase(admin_action_repository=self.admin_action_repo())
 
     def get_categories_use_case(self) -> GetCategoriesUseCase:
         return GetCategoriesUseCase(

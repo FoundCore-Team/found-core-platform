@@ -26,8 +26,10 @@ __all__ = [
     "SetAdminUseCase",
     "BanUserUseCase",
     "UnbanUserUseCase",
+    "ListAdminActionsUseCase",
 ]
 
+from app.application.use_cases.admin_journal import ListAdminActionsUseCase
 from app.application.use_cases.auth import AuthenticateTelegramUserUseCase, VerifyAccessTokenUseCase
 from app.application.use_cases.contact import (
     OpenContactUseCase,

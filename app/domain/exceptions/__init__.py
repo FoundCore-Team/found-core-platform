@@ -32,6 +32,7 @@ __all__ = [
     "ContactLimitReachedError",
     "NotificationUnavailableError",
     "NotificationRejectedError",
+    "AdminRequiredError",
     "UserNotFoundError",
     "CannotBanAdminError",
 ]
@@ -56,7 +57,7 @@ from app.domain.exceptions.feed import (
     NoActiveProfileError,
     UsernameRequiredError,
 )
-from app.domain.exceptions.moderation import CannotBanAdminError, UserNotFoundError
+from app.domain.exceptions.moderation import AdminRequiredError, CannotBanAdminError, UserNotFoundError
 from app.domain.exceptions.notification import NotificationRejectedError, NotificationUnavailableError
 from app.domain.exceptions.profile import (
     InvalidCountryError,
