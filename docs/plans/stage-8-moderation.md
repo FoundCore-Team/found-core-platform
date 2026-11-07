@@ -221,7 +221,7 @@ op.execute("DROP TYPE tag_status_old")
 
 ### 3.5. Прочее
 
-1. **Домен:** `entities/{moderation,report}.py`, `enums/{moderation,report}.py` (`AdminActionType`, `AdminTargetType`, `ReportReason`, `ReportStatus`), `exceptions/{moderation,report}.py` + новые в `exceptions/taxonomy.py`: `UserNotFoundError`, `CannotBanAdminError`, `ReportProfileNotFoundError`, `TagNotFoundError`, `TagStatusConflictError(status)`, `TagMergeTargetInvalidError(reason)`. `ADMIN_REASON_MAX_LENGTH = 1000`, `REPORT_COMMENT_MAX_LENGTH = 1000` в `domain/constants.py` (зеркалят размеры колонок).
+1. **Домен:** `entities/{moderation,report}.py`, `enums/{moderation,report}.py` (`AdminActionType`, `AdminTargetType`, `ReportReason`, `ReportStatus`), `exceptions/{moderation,report}.py`: `UserNotFoundError`, `CannotBanAdminError` (`moderation.py`), `ReportProfileNotFoundError` (`report.py`); новые в `exceptions/taxonomy.py`: `TagNotFoundError`, `TagStatusConflictError(status)`, `TagMergeTargetInvalidError(reason)`. `ADMIN_REASON_MAX_LENGTH = 1000`, `REPORT_COMMENT_MAX_LENGTH = 1000` в `domain/constants.py` (зеркалят размеры колонок).
 2. **Конфиг (plain `BaseModel`):** `ModerationConfig(page_size_default=50, page_size_max=100, max_offset=100_000)`. В `Settings`: `moderation` с дефолтами. Секретов нет.
 3. **`Container`:** `admin_action_repo()`, `report_repo()`, фабрики новых use case.
 4. **`visible_to(viewer_user_id: int)`**; вызовы в `sqlalchemy_feed.py` (2) и `sqlalchemy_contact_open.py` (1) передают `viewer.user_id`.

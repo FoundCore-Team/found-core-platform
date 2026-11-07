@@ -32,6 +32,8 @@ __all__ = [
     "ContactOpenEntity",
     "ContactWindowUsage",
     "OpenedContact",
+    "NewAdminActionEntity",
+    "AdminActionEntity",
 ]
 
 from app.domain.entities.auth import (
@@ -59,6 +61,7 @@ from app.domain.entities.feed import (
     FeedSession,
     FeedViewer,
 )
+from app.domain.entities.moderation import AdminActionEntity, NewAdminActionEntity
 from app.domain.entities.profile import (
     CountryEntity,
     NewProfileEntity,
