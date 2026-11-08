@@ -5,6 +5,7 @@ __all__ = [
     "IFeedRepository",
     "IFeedSessionRepository",
     "IProfileViewRepository",
+    "IReportRepository",
     "ITaxonomyRepository",
     "ITaxonomyCacheRepository",
     "IProfileRepository",
@@ -27,6 +28,7 @@ from app.domain.interfaces.notification_sender import INotificationSender
 from app.domain.interfaces.profile_view import IProfileViewRepository
 from app.domain.interfaces.profile import IProfileRepository
 from app.domain.interfaces.profile_embedding import IProfileEmbeddingRepository
+from app.domain.interfaces.report import IReportRepository
 from app.domain.interfaces.taxonomy import ITaxonomyRepository
 from app.domain.interfaces.taxonomy_cache import ITaxonomyCacheRepository
 from app.domain.interfaces.unit_of_work import IUnitOfWork

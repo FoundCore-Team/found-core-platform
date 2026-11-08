@@ -34,6 +34,9 @@ __all__ = [
     "OpenedContact",
     "NewAdminActionEntity",
     "AdminActionEntity",
+    "NewReportEntity",
+    "ReportEntity",
+    "ReportGroupEntity",
 ]
 
 from app.domain.entities.auth import (
@@ -70,6 +73,7 @@ from app.domain.entities.profile import (
     TimezoneEntity,
 )
 from app.domain.entities.profile_embedding import ProfileEmbeddingEntity
+from app.domain.entities.report import NewReportEntity, ReportEntity, ReportGroupEntity
 from app.domain.entities.taxonomy import (
     CategoryEntity,
     NewTagEntity,

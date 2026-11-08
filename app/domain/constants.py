@@ -9,5 +9,8 @@ FEED_ALGORITHM_VERSION = 1
 # receives the same text on a ban), so the request schema and the column cannot drift apart.
 ADMIN_REASON_MAX_LENGTH = 1000
 
+# Longest optional comment on a report. Mirrors the size of `reports.comment`.
+REPORT_COMMENT_MAX_LENGTH = 1000
+
 # Length of every stored embedding. The `vector(1536)` column type depends on it, so it is not configurable.
 EMBEDDING_DIMENSIONS = 1536
