@@ -27,7 +27,7 @@ class SqlAlchemyContactOpenRepository(IContactOpenRepository):
             select(UserModel.username)
             .select_from(ProfileModel)
             .join(UserModel, UserModel.id == ProfileModel.user_id)
-            .where(ProfileModel.id == profile_id, *visible_to(viewer))
+            .where(ProfileModel.id == profile_id, *visible_to(viewer.user_id))
         )
         return result.scalar_one_or_none()
 
