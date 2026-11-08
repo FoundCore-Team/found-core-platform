@@ -90,6 +90,11 @@ def test_the_walk_finds_the_admin_routes():
         "/api/v1/admin/users/1/ban",
         "/api/v1/admin/users/1/unban",
         "/api/v1/admin/actions",
+        "/api/v1/admin/profiles/1/hide",
+        "/api/v1/admin/profiles/1/unhide",
+        "/api/v1/admin/reports",
+        "/api/v1/admin/reports/profiles/1",
+        "/api/v1/admin/reports/profiles/1/dismiss",
     }
 
 
