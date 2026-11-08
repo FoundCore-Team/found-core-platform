@@ -7,9 +7,10 @@ from app.domain.entities import (
     NewProfileEntity,
     NewUserEntity,
     ProfileEntity,
+    ReportEntity,
     UserEntity,
 )
-from app.domain.enums import ProfileStatus
+from app.domain.enums import ProfileStatus, ReportReason, ReportStatus
 
 FEED_NOW = datetime(2026, 10, 28, 12, 0, tzinfo=timezone.utc)
 
@@ -114,6 +115,21 @@ def make_new_profile_entity(**overrides) -> NewProfileEntity:
     )
     defaults.update(overrides)
     return NewProfileEntity(**defaults)
+
+
+def make_report_entity(**overrides) -> ReportEntity:
+    defaults = dict(
+        id=1,
+        reporter_user_id=50,
+        profile_id=1,
+        reason=ReportReason.SPAM,
+        comment=None,
+        status=ReportStatus.OPEN,
+        created_at=datetime(2026, 11, 8, 10, 0, tzinfo=timezone.utc),
+        resolved_at=None,
+    )
+    defaults.update(overrides)
+    return ReportEntity(**defaults)
 
 
 def make_profile_entity(**overrides) -> ProfileEntity:
