@@ -11,6 +11,7 @@ from app.domain.entities import NewAdminActionEntity
 from app.domain.enums import AdminActionType, AdminTargetType
 from app.domain.exceptions import CannotBanAdminError, UserBannedError, UserNotFoundError
 from tests.fixtures.fake_admin_action_repository import FakeAdminActionRepository
+from tests.fixtures.fake_report_repository import FakeReportRepository
 from tests.fixtures.fake_unit_of_work import FakeUnitOfWork
 from tests.fixtures.fake_user_repository import FakeUserRepository
 from tests.fixtures.factories import make_user_entity
@@ -67,8 +68,10 @@ def build(use_case_class, users, user_repository=None):
     user_repository = user_repository or FakeUserRepository(users)
     journal = FakeAdminActionRepository()
     unit_of_work = FakeUnitOfWork()
+    # Only a ban touches reports.
+    extra = {"report_repository": FakeReportRepository()} if use_case_class is BanUserUseCase else {}
     use_case = use_case_class(
-        user_repository=user_repository, admin_action_repository=journal, unit_of_work=unit_of_work
+        user_repository=user_repository, admin_action_repository=journal, unit_of_work=unit_of_work, **extra
     )
     return use_case, user_repository, journal, unit_of_work
 

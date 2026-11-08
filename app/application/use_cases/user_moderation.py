@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from app.domain.entities import NewAdminActionEntity, UserEntity
 from app.domain.enums import AdminActionType, AdminTargetType
 from app.domain.exceptions import CannotBanAdminError, UserBannedError, UserNotFoundError
-from app.domain.interfaces import IAdminActionRepository, IUnitOfWork, IUserRepository
+from app.domain.interfaces import IAdminActionRepository, IReportRepository, IUnitOfWork, IUserRepository
 
 
 class SetAdminUseCase:
@@ -59,15 +59,18 @@ class SetAdminUseCase:
 class BanUserUseCase:
     """Bans a user until an admin lifts it. `token_version` goes up in the same statement, so every token issued before
     the ban stops working at once. Statuses of the user's profiles are not touched: they drop out of the feed by
-    the visibility rule."""
+    the visibility rule. Open reports on any of the user's profiles are closed as `resolved`: the question they raised
+    is answered."""
 
     def __init__(
         self,
         user_repository: IUserRepository,
+        report_repository: IReportRepository,
         admin_action_repository: IAdminActionRepository,
         unit_of_work: IUnitOfWork,
     ) -> None:
         self._user_repository = user_repository
+        self._report_repository = report_repository
         self._admin_action_repository = admin_action_repository
         self._unit_of_work = unit_of_work
 
@@ -96,6 +99,8 @@ class BanUserUseCase:
             # once, or a 409); it takes two more admins acting on the same user at the same instant.
             raise UserNotFoundError()
 
+        now = datetime.now(timezone.utc)
+        resolved_reports = await self._report_repository.resolve_open_for_user(user.id, now)
         await self._admin_action_repository.add(
             NewAdminActionEntity(
                 actor_user_id=admin.id,
@@ -103,8 +108,8 @@ class BanUserUseCase:
                 target_type=AdminTargetType.USER,
                 target_id=user.id,
                 reason=reason,
-                details={},
-                created_at=datetime.now(timezone.utc),
+                details={"resolved_reports": resolved_reports},
+                created_at=now,
             )
         )
         await self._unit_of_work.commit()

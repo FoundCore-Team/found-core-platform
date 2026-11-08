@@ -120,6 +120,7 @@ async def test_a_journal_failure_leaves_no_ban_no_token_bump_and_no_row_committe
     target, _ = await create_user_with_headers(session, 946002)
     use_case = BanUserUseCase(
         user_repository=container.user_repo(),
+        report_repository=container.report_repo(),
         admin_action_repository=BrokenJournal(session),
         unit_of_work=container.unit_of_work(),
     )

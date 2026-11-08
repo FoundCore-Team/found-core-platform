@@ -293,7 +293,7 @@ async def test_the_journal_row_of_a_ban_says_who_what_whom_and_why(taxonomy_clie
     [row] = await journal_rows(session)
     assert row.actor_user_id == admin_body["user"]["id"]
     assert (row.action, row.target_type, row.target_id) == ("ban_user", "user", target["user"]["id"])
-    assert (row.reason, row.details) == ("spam in bio", {})
+    assert (row.reason, row.details) == ("spam in bio", {"resolved_reports": 0})
 
 
 async def test_the_reason_is_trimmed_and_may_be_unicode_and_exactly_the_longest_allowed(taxonomy_client, session):

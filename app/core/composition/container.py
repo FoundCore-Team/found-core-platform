@@ -301,6 +301,7 @@ class Container:
     def ban_user_use_case(self) -> BanUserUseCase:
         return BanUserUseCase(
             user_repository=self.user_repo(),
+            report_repository=self.report_repo(),
             admin_action_repository=self.admin_action_repo(),
             unit_of_work=self.unit_of_work(),
         )
