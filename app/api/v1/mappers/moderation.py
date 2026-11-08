@@ -1,5 +1,90 @@
-from app.api.v1.schemas.moderation import AdminActionPageSchema, AdminActionSchema, AdminUserSchema
-from app.domain.entities import AdminActionEntity, UserEntity
+from app.api.v1.mappers.taxonomy import map_tag_entity_to_tag_schema
+from app.api.v1.schemas.moderation import (
+    AdminActionPageSchema,
+    AdminActionSchema,
+    AdminProfileSchema,
+    AdminReportSchema,
+    AdminUserSchema,
+    ProfileReportsSchema,
+    ReportGroupPageSchema,
+    ReportGroupSchema,
+    ReportOwnerSchema,
+)
+from app.domain.entities import (
+    AdminActionEntity,
+    ProfileEntity,
+    ReportEntity,
+    ReportGroupEntity,
+    UserEntity,
+)
+
+
+def map_profile_entity_to_admin_profile_schema(profile: ProfileEntity) -> AdminProfileSchema:
+    return AdminProfileSchema(
+        id=profile.id,
+        user_id=profile.user_id,
+        category_id=profile.category_id,
+        role_id=profile.role_id,
+        status=profile.status,
+        country_code=profile.country_code,
+        timezone=profile.timezone,
+        bio=profile.bio,
+        goals_description=profile.goals_description,
+        extra_attributes=profile.extra_attributes,
+        tags=[map_tag_entity_to_tag_schema(tag) for tag in profile.tags],
+        created_at=profile.created_at,
+        updated_at=profile.updated_at,
+    )
+
+
+def map_report_group_entity_to_report_group_schema(group: ReportGroupEntity) -> ReportGroupSchema:
+    return ReportGroupSchema(
+        profile_id=group.profile_id,
+        profile_status=group.profile_status,
+        category_id=group.category_id,
+        role_id=group.role_id,
+        owner=ReportOwnerSchema(
+            user_id=group.owner_user_id,
+            first_name=group.owner_first_name,
+            username=group.owner_username,
+            is_banned=group.owner_is_banned,
+        ),
+        open_count=group.open_count,
+        oldest_at=group.oldest_at,
+        newest_at=group.newest_at,
+        reasons=group.reasons,
+    )
+
+
+def map_report_groups_to_report_group_page_schema(
+    groups: list[ReportGroupEntity], total: int, limit: int, offset: int
+) -> ReportGroupPageSchema:
+    return ReportGroupPageSchema(
+        items=[map_report_group_entity_to_report_group_schema(group) for group in groups],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+def map_report_entity_to_admin_report_schema(report: ReportEntity) -> AdminReportSchema:
+    return AdminReportSchema(
+        id=report.id,
+        reporter_user_id=report.reporter_user_id,
+        reason=report.reason,
+        comment=report.comment,
+        created_at=report.created_at,
+    )
+
+
+def map_profile_reports_to_profile_reports_schema(
+    profile: ProfileEntity, owner: UserEntity, reports: list[ReportEntity]
+) -> ProfileReportsSchema:
+    return ProfileReportsSchema(
+        profile=map_profile_entity_to_admin_profile_schema(profile),
+        owner=map_user_entity_to_admin_user_schema(owner),
+        reports=[map_report_entity_to_admin_report_schema(report) for report in reports],
+    )
 
 
 def map_user_entity_to_admin_user_schema(user: UserEntity) -> AdminUserSchema:

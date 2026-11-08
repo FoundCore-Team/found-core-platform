@@ -4,7 +4,8 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.schemas.common import AdminReason
-from app.domain.enums import AdminActionType, AdminTargetType
+from app.api.v1.schemas.taxonomy import TagSchema
+from app.domain.enums import AdminActionType, AdminTargetType, ProfileStatus, ReportReason
 
 
 class AdminReasonRequest(BaseModel):
@@ -37,6 +38,72 @@ class AdminUserSchema(BaseModel):
     ban_reason: str | None
     created_at: datetime
     last_active_at: datetime
+
+
+class AdminProfileSchema(BaseModel):
+    """A profile as an admin sees it: any status, with the owner's id. No `is_active` (that is the owner's view)."""
+
+    id: int
+    user_id: int
+    category_id: int
+    role_id: int
+    status: ProfileStatus
+    country_code: str
+    timezone: str
+    bio: str
+    goals_description: str
+    extra_attributes: dict[str, str]
+    tags: list[TagSchema]
+    created_at: datetime
+    updated_at: datetime
+
+
+class ReportOwnerSchema(BaseModel):
+    user_id: int
+    first_name: str
+    username: str | None
+    is_banned: bool
+
+
+class ReportGroupSchema(BaseModel):
+    """One row of the report queue: a profile and its open reports."""
+
+    profile_id: int
+    profile_status: ProfileStatus
+    category_id: int
+    role_id: int
+    owner: ReportOwnerSchema
+    open_count: int
+    oldest_at: datetime
+    newest_at: datetime
+    # Every reason is present, with 0 for the ones nobody used.
+    reasons: dict[ReportReason, int]
+
+
+class ReportGroupPageSchema(BaseModel):
+    items: list[ReportGroupSchema]
+    total: int
+    limit: int
+    offset: int
+
+
+class AdminReportSchema(BaseModel):
+    id: int
+    reporter_user_id: int
+    reason: ReportReason
+    comment: str | None
+    created_at: datetime
+
+
+class ProfileReportsSchema(BaseModel):
+    profile: AdminProfileSchema
+    owner: AdminUserSchema
+    reports: list[AdminReportSchema]
+
+
+class DismissedReportsSchema(BaseModel):
+    profile_id: int
+    dismissed_count: int
 
 
 class AdminActionSchema(BaseModel):
