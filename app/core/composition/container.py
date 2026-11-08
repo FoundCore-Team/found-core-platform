@@ -15,17 +15,22 @@ from app.application.use_cases import (
     BanUserUseCase,
     CreateCustomTagUseCase,
     CreateProfileUseCase,
+    CreateReportUseCase,
     DeleteProfileUseCase,
+    DismissProfileReportsUseCase,
     EmbedProfileUseCase,
     GetCategoriesUseCase,
     GetFeedCardUseCase,
     GetFeedUseCase,
     GetMyProfilesUseCase,
     GetProfileFormConfigUseCase,
+    GetProfileReportsUseCase,
     GetProfileUseCase,
     GetRoleFieldsByRoleUseCase,
     GetRolesByCategoryUseCase,
+    HideProfileUseCase,
     ListAdminActionsUseCase,
+    ListReportGroupsUseCase,
     OpenContactUseCase,
     PauseProfileUseCase,
     RecordProfileViewUseCase,
@@ -36,6 +41,7 @@ from app.application.use_cases import (
     SweepStaleEmbeddingsUseCase,
     SweepStaleNotificationsUseCase,
     UnbanUserUseCase,
+    UnhideProfileUseCase,
     UpdateProfileUseCase,
     VerifyAccessTokenUseCase,
 )
@@ -64,6 +70,7 @@ from app.infrastructure.repositories import (
     SqlAlchemyProfileEmbeddingRepository,
     SqlAlchemyProfileRepository,
     SqlAlchemyProfileViewRepository,
+    SqlAlchemyReportRepository,
     SqlAlchemyTaxonomyRepository,
     SqlAlchemyUserRepository,
 )
@@ -114,6 +121,9 @@ class Container:
 
     def admin_action_repo(self) -> SqlAlchemyAdminActionRepository:
         return SqlAlchemyAdminActionRepository(self.session)
+
+    def report_repo(self) -> SqlAlchemyReportRepository:
+        return SqlAlchemyReportRepository(self.session)
 
     def taxonomy_repo(self) -> SqlAlchemyTaxonomyRepository:
         return SqlAlchemyTaxonomyRepository(self.session, suggest_limit=settings.taxonomy.suggest_limit)
@@ -304,6 +314,43 @@ class Container:
 
     def list_admin_actions_use_case(self) -> ListAdminActionsUseCase:
         return ListAdminActionsUseCase(admin_action_repository=self.admin_action_repo())
+
+    def hide_profile_use_case(self) -> HideProfileUseCase:
+        return HideProfileUseCase(
+            profile_repository=self.profile_repo(),
+            user_repository=self.user_repo(),
+            report_repository=self.report_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def unhide_profile_use_case(self) -> UnhideProfileUseCase:
+        return UnhideProfileUseCase(
+            profile_repository=self.profile_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def create_report_use_case(self) -> CreateReportUseCase:
+        return CreateReportUseCase(report_repository=self.report_repo(), unit_of_work=self.unit_of_work())
+
+    def list_report_groups_use_case(self) -> ListReportGroupsUseCase:
+        return ListReportGroupsUseCase(report_repository=self.report_repo())
+
+    def get_profile_reports_use_case(self) -> GetProfileReportsUseCase:
+        return GetProfileReportsUseCase(
+            profile_repository=self.profile_repo(),
+            user_repository=self.user_repo(),
+            report_repository=self.report_repo(),
+        )
+
+    def dismiss_profile_reports_use_case(self) -> DismissProfileReportsUseCase:
+        return DismissProfileReportsUseCase(
+            profile_repository=self.profile_repo(),
+            report_repository=self.report_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
 
     def get_categories_use_case(self) -> GetCategoriesUseCase:
         return GetCategoriesUseCase(

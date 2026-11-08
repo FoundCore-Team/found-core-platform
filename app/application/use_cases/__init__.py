@@ -27,6 +27,12 @@ __all__ = [
     "BanUserUseCase",
     "UnbanUserUseCase",
     "ListAdminActionsUseCase",
+    "HideProfileUseCase",
+    "UnhideProfileUseCase",
+    "CreateReportUseCase",
+    "ListReportGroupsUseCase",
+    "GetProfileReportsUseCase",
+    "DismissProfileReportsUseCase",
 ]
 
 from app.application.use_cases.admin_journal import ListAdminActionsUseCase
@@ -48,6 +54,13 @@ from app.application.use_cases.profile import (
     PauseProfileUseCase,
     ResumeProfileUseCase,
     UpdateProfileUseCase,
+)
+from app.application.use_cases.profile_moderation import HideProfileUseCase, UnhideProfileUseCase
+from app.application.use_cases.report import CreateReportUseCase
+from app.application.use_cases.report_moderation import (
+    DismissProfileReportsUseCase,
+    GetProfileReportsUseCase,
+    ListReportGroupsUseCase,
 )
 from app.application.use_cases.taxonomy import (
     CreateCustomTagUseCase,

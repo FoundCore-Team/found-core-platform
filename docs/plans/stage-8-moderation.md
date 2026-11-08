@@ -192,7 +192,7 @@ op.execute("DROP TYPE tag_status_old")
 
 ### 3.3. Use cases и порядок проверок
 
-Файлы `application/use_cases/`: `user_moderation.py` (`SetAdminUseCase`, `BanUserUseCase`, `UnbanUserUseCase`), `profile_moderation.py` (`HideProfileUseCase`, `UnhideProfileUseCase`), `report.py` (`CreateReportUseCase`, `ListReportGroupsUseCase`, `GetProfileReportsUseCase`, `DismissProfileReportsUseCase`), `tag_moderation.py` (`ListPendingTagsUseCase`, `ApproveTagUseCase`, `RejectTagUseCase`, `MergeTagUseCase`), `admin_journal.py` (`ListAdminActionsUseCase`). Во всех мутациях: изменить состояние, закрыть жалобы / пометить эмбеддинги, **добавить строку журнала**, один `commit`.
+Файлы `application/use_cases/`: `user_moderation.py` (`SetAdminUseCase`, `BanUserUseCase`, `UnbanUserUseCase`), `profile_moderation.py` (`HideProfileUseCase`, `UnhideProfileUseCase`), `report.py` (`CreateReportUseCase`, пользовательский), `report_moderation.py` (`ListReportGroupsUseCase`, `GetProfileReportsUseCase`, `DismissProfileReportsUseCase`, админские), `tag_moderation.py` (`ListPendingTagsUseCase`, `ApproveTagUseCase`, `RejectTagUseCase`, `MergeTagUseCase`), `admin_journal.py` (`ListAdminActionsUseCase`). Во всех мутациях: изменить состояние, закрыть жалобы / пометить эмбеддинги, **добавить строку журнала**, один `commit`.
 
 - **`BanUserUseCase.execute(admin, user_id, reason)`**: `get_by_id` (нет или `deleted_at` → `UserNotFoundError`) → `is_admin` → `CannotBanAdminError` → уже забанен → вернуть → `set_ban`; `None` → перечитать (админ → `CannotBanAdminError`, забанен → вернуть, иначе 404) → `resolve_open_for_user` → журнал `ban_user` `{"resolved_reports": n}` → `commit`.
 - **`UnbanUserUseCase`**: 404 → не забанен → вернуть → `clear_ban` → журнал → `commit`.
@@ -240,7 +240,7 @@ op.execute("DROP TYPE tag_status_old")
 Новые:
 - `app/domain/entities/{moderation,report}.py`, `enums/{moderation,report}.py`, `exceptions/{moderation,report}.py`
 - `app/domain/interfaces/{admin_action,report}.py`
-- `app/application/use_cases/{user_moderation,profile_moderation,report,tag_moderation,admin_journal}.py`
+- `app/application/use_cases/{user_moderation,profile_moderation,report,report_moderation,tag_moderation,admin_journal}.py`
 - `app/infrastructure/models/{admin_action,report}.py` (+ экспорт), `mappers/{admin_action_mapper,report_mapper}.py`, `repositories/{sqlalchemy_admin_action,sqlalchemy_report}.py`
 - `app/api/v1/routers/{admin_users,admin_profiles,admin_reports,admin_tags,admin_actions,reports}.py`, `schemas/{moderation,report}.py`, `mappers/{moderation,report}.py`
 - `scripts/make_admin.py`
@@ -350,3 +350,4 @@ docker compose exec found_core_mini_app alembic heads    # одна голова
 6. **8a, `AdminRequiredError`:** добавлено исключение в `exceptions/moderation.py` для сообщения `403 admin_required` (в плане его не было; по образцу `UsernameRequiredError`).
 7. **8a, `clear_ban` и `set_admin`** возвращают `UserEntity | None`, как `set_ban` (в 3.4 тип результата не был указан): use case получает новое состояние без повторного чтения.
 8. **Решение 10:** вместо `SET NULL` по жалобщику — `NOT NULL` и `ON DELETE CASCADE`: жалоба удаляется вместе с аккаунтом автора. Почему: решение пользователя. Что отброшено: «анонимные» жалобы с `reporter_user_id = NULL`. Риск: жалобщик может убрать свою жалобу из очереди, удалив аккаунт.
+9. **8b, расположение use cases жалоб:** админские `ListReportGroupsUseCase`, `GetProfileReportsUseCase`, `DismissProfileReportsUseCase` лежат в `report_moderation.py`, в `report.py` остался пользовательский `CreateReportUseCase`. Почему: один модуль не должен смешивать пользовательский и админский поток, `user_moderation.py` и `profile_moderation.py` уже разделены так. Уже отражено в 3.3 и разделе 4.
