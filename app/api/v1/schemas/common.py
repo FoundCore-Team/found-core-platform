@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, Field, StringConstraints
 
-from app.domain.constants import ADMIN_REASON_MAX_LENGTH, MAX_INT64
+from app.domain.constants import ADMIN_REASON_MAX_LENGTH, MAX_INT64, REPORT_COMMENT_MAX_LENGTH
 
 Int64Id = Annotated[int, Field(ge=1, le=MAX_INT64)]
 
@@ -18,5 +18,13 @@ def _reject_nul(value: str) -> str:
 AdminReason = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=ADMIN_REASON_MAX_LENGTH),
+    AfterValidator(_reject_nul),
+]
+
+# The optional free text of a report: trimmed, at most REPORT_COMMENT_MAX_LENGTH characters, no NUL. May be empty;
+# the mapper turns an empty one into "no comment".
+ReportComment = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, max_length=REPORT_COMMENT_MAX_LENGTH),
     AfterValidator(_reject_nul),
 ]
