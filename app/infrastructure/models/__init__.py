@@ -12,6 +12,7 @@ __all__ = [
     "ProfileViewModel",
     "ContactOpenModel",
     "AdminActionModel",
+    "ReportModel",
 ]
 
 from app.infrastructure.models.admin_action import AdminActionModel
@@ -20,6 +21,7 @@ from app.infrastructure.models.contact_open import ContactOpenModel
 from app.infrastructure.models.profile import ProfileModel, ProfileTagModel
 from app.infrastructure.models.profile_embedding import ProfileEmbeddingModel
 from app.infrastructure.models.profile_view import ProfileViewModel
+from app.infrastructure.models.report import ReportModel
 from app.infrastructure.models.taxonomy import (
     CategoryModel,
     RoleFieldModel,
