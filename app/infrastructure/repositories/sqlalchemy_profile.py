@@ -132,10 +132,35 @@ class SqlAlchemyProfileRepository(IProfileRepository):
         tags = await self._load_tags([model.id])
         return map_profile_model_to_profile_entity(model, tags[model.id])
 
-    async def set_status(self, profile_id: int, status: ProfileStatus) -> None:
-        await self._session.execute(
-            update(ProfileModel).where(ProfileModel.id == profile_id).values(status=status)
+    async def set_status(self, profile_id: int, status: ProfileStatus) -> bool:
+        result = await self._session.execute(
+            update(ProfileModel)
+            .where(ProfileModel.id == profile_id, ProfileModel.status != ProfileStatus.HIDDEN_BY_ADMIN)
+            .values(status=status)
+            .returning(ProfileModel.id)
         )
+        return result.scalar_one_or_none() is not None
+
+    async def hide(self, profile_id: int) -> bool:
+        result = await self._session.execute(
+            update(ProfileModel)
+            .where(
+                ProfileModel.id == profile_id,
+                ProfileModel.status.in_([ProfileStatus.ACTIVE, ProfileStatus.PAUSED]),
+            )
+            .values(status=ProfileStatus.HIDDEN_BY_ADMIN)
+            .returning(ProfileModel.id)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def unhide(self, profile_id: int) -> bool:
+        result = await self._session.execute(
+            update(ProfileModel)
+            .where(ProfileModel.id == profile_id, ProfileModel.status == ProfileStatus.HIDDEN_BY_ADMIN)
+            .values(status=ProfileStatus.PAUSED)
+            .returning(ProfileModel.id)
+        )
+        return result.scalar_one_or_none() is not None
 
     async def delete(self, profile_id: int) -> None:
         await self._session.execute(delete(ProfileModel).where(ProfileModel.id == profile_id))

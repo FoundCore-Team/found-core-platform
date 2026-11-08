@@ -33,7 +33,18 @@ class IProfileRepository(ABC):
         """Writes the editable content and replaces the tag links. Never changes status, category or role."""
 
     @abstractmethod
-    async def set_status(self, profile_id: int, status: ProfileStatus) -> None: ...
+    async def set_status(self, profile_id: int, status: ProfileStatus) -> bool:
+        """The owner's status change (pause/resume). Never touches a `hidden_by_admin` profile: the condition is in
+        the UPDATE itself, so an owner who read `paused` cannot overwrite a hide that happened a moment later.
+        Returns False if nothing was changed (hidden, or the profile no longer exists)."""
+
+    @abstractmethod
+    async def hide(self, profile_id: int) -> bool:
+        """`active`/`paused` -> `hidden_by_admin`. Returns False if the profile was already hidden or is gone."""
+
+    @abstractmethod
+    async def unhide(self, profile_id: int) -> bool:
+        """`hidden_by_admin` -> `paused` (never straight to `active`). Returns False if it was not hidden."""
 
     @abstractmethod
     async def delete(self, profile_id: int) -> None: ...

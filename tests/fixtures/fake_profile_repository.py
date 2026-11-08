@@ -112,8 +112,27 @@ class FakeProfileRepository(IProfileRepository):
         stored.tags = self._tags_by_ids(tag_ids)
         return self._copy(stored)
 
-    async def set_status(self, profile_id: int, status: ProfileStatus) -> None:
-        self._profiles[profile_id].status = status
+    async def set_status(self, profile_id: int, status: ProfileStatus) -> bool:
+        # Like the real UPDATE: a hidden (or missing) profile is left alone and False is returned.
+        profile = self._profiles.get(profile_id)
+        if profile is None or profile.status == ProfileStatus.HIDDEN_BY_ADMIN:
+            return False
+        profile.status = status
+        return True
+
+    async def hide(self, profile_id: int) -> bool:
+        profile = self._profiles.get(profile_id)
+        if profile is None or profile.status == ProfileStatus.HIDDEN_BY_ADMIN:
+            return False
+        profile.status = ProfileStatus.HIDDEN_BY_ADMIN
+        return True
+
+    async def unhide(self, profile_id: int) -> bool:
+        profile = self._profiles.get(profile_id)
+        if profile is None or profile.status != ProfileStatus.HIDDEN_BY_ADMIN:
+            return False
+        profile.status = ProfileStatus.PAUSED
+        return True
 
     async def delete(self, profile_id: int) -> None:
         self._profiles.pop(profile_id, None)

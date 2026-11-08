@@ -188,3 +188,5 @@ async def delete_profile(
         await container.delete_profile_use_case().execute(current_user, profile_id)
     except ProfileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ProfileHiddenError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
