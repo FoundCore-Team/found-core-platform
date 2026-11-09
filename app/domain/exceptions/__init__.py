@@ -9,6 +9,9 @@ __all__ = [
     "RoleNotFoundError",
     "TagTitleInvalidError",
     "TagRejectedError",
+    "TagNotFoundError",
+    "TagStatusConflictError",
+    "TagMergeTargetInvalidError",
     "ProfileNotFoundError",
     "ProfileAlreadyExistsError",
     "ProfileNotActivatableError",
@@ -77,7 +80,10 @@ from app.domain.exceptions.report import ReportProfileNotFoundError
 from app.domain.exceptions.taxonomy import (
     CategoryNotFoundError,
     RoleNotFoundError,
+    TagMergeTargetInvalidError,
+    TagNotFoundError,
     TagRejectedError,
+    TagStatusConflictError,
     TagTitleInvalidError,
 )
 from app.domain.exceptions.user import UserBannedError

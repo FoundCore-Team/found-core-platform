@@ -11,6 +11,7 @@ __all__ = [
     "ReportReason",
     "ReportStatus",
     "RoleFieldType",
+    "TagMergeTargetProblem",
     "TagStatus",
 ]
 
@@ -19,4 +20,4 @@ from app.domain.enums.feed import FeedEndReason, FeedMode, FeedReasonCode, FeedT
 from app.domain.enums.moderation import AdminActionType, AdminTargetType
 from app.domain.enums.profile import EmbeddingStatus, ProfileStatus
 from app.domain.enums.report import ReportReason, ReportStatus
-from app.domain.enums.taxonomy import RoleFieldType, TagStatus
+from app.domain.enums.taxonomy import RoleFieldType, TagMergeTargetProblem, TagStatus

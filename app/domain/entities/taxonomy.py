@@ -49,6 +49,8 @@ class TagEntity:
     status: TagStatus
     created_by_user_id: int | None
     usage_count: int = 0
+    # Set exactly when status is MERGED: the tag this one is an alias of (never itself an alias).
+    merged_into_tag_id: int | None = None
 
 
 @dataclass
