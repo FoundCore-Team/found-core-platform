@@ -11,6 +11,9 @@ __all__ = [
     "NewTagEntity",
     "TagEntity",
     "NewTagScopeEntity",
+    "TagScopeEntity",
+    "TagCreatorEntity",
+    "PendingTagEntity",
     "ProfileFormEntity",
     "NewProfileEntity",
     "ProfileEntity",
@@ -78,8 +81,11 @@ from app.domain.entities.taxonomy import (
     CategoryEntity,
     NewTagEntity,
     NewTagScopeEntity,
+    PendingTagEntity,
     RoleEntity,
     RoleFieldEntity,
+    TagCreatorEntity,
     TagEntity,
+    TagScopeEntity,
 )
 from app.domain.entities.user import NewUserEntity, UserEntity

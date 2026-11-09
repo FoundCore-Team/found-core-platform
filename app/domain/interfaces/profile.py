@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from app.domain.entities import NewProfileEntity, ProfileEntity
 from app.domain.enums import ProfileStatus
@@ -48,3 +49,21 @@ class IProfileRepository(ABC):
 
     @abstractmethod
     async def delete(self, profile_id: int) -> None: ...
+
+    @abstractmethod
+    async def detach_tag(self, tag_id: int) -> list[int]:
+        """Removes the tag from every profile. Returns the ids of the profiles that had it, ascending."""
+
+    @abstractmethod
+    async def replace_tag(self, source_id: int, target_id: int) -> list[int]:
+        """Moves every link from `source_id` to `target_id`; a profile that already has both keeps one link.
+
+        Returns the ids of the profiles that had the source, ascending.
+        """
+
+    @abstractmethod
+    async def touch(self, profile_ids: list[int]) -> dict[int, datetime]:
+        """Sets `updated_at` of the profiles to one fresh value and returns it per profile id.
+
+        The new value is what makes a running embedding job lose its conditional write.
+        """
