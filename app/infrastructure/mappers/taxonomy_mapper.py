@@ -43,4 +43,5 @@ def map_tag_model_to_tag_entity(model: TagModel) -> TagEntity:
         status=model.status,
         created_by_user_id=model.created_by_user_id,
         usage_count=model.usage_count,
+        merged_into_tag_id=model.merged_into_tag_id,
     )
