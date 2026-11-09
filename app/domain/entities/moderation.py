@@ -2,7 +2,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from app.domain.entities.taxonomy import TagEntity
 from app.domain.enums import AdminActionType, AdminTargetType
+
+
+@dataclass
+class TagModerationResult:
+    tag: TagEntity
+    # Profiles whose tags changed (and whose embeddings were queued for a refresh); 0 for a repeated action.
+    affected_profiles: int
 
 
 @dataclass

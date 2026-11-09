@@ -37,6 +37,7 @@ __all__ = [
     "OpenedContact",
     "NewAdminActionEntity",
     "AdminActionEntity",
+    "TagModerationResult",
     "NewReportEntity",
     "ReportEntity",
     "ReportGroupEntity",
@@ -67,7 +68,7 @@ from app.domain.entities.feed import (
     FeedSession,
     FeedViewer,
 )
-from app.domain.entities.moderation import AdminActionEntity, NewAdminActionEntity
+from app.domain.entities.moderation import AdminActionEntity, NewAdminActionEntity, TagModerationResult
 from app.domain.entities.profile import (
     CountryEntity,
     NewProfileEntity,
