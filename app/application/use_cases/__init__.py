@@ -33,6 +33,10 @@ __all__ = [
     "ListReportGroupsUseCase",
     "GetProfileReportsUseCase",
     "DismissProfileReportsUseCase",
+    "ListPendingTagsUseCase",
+    "ApproveTagUseCase",
+    "RejectTagUseCase",
+    "MergeTagUseCase",
 ]
 
 from app.application.use_cases.admin_journal import ListAdminActionsUseCase
@@ -61,6 +65,12 @@ from app.application.use_cases.report_moderation import (
     DismissProfileReportsUseCase,
     GetProfileReportsUseCase,
     ListReportGroupsUseCase,
+)
+from app.application.use_cases.tag_moderation import (
+    ApproveTagUseCase,
+    ListPendingTagsUseCase,
+    MergeTagUseCase,
+    RejectTagUseCase,
 )
 from app.application.use_cases.taxonomy import (
     CreateCustomTagUseCase,

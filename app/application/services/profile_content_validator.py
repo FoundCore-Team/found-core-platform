@@ -42,5 +42,8 @@ class ProfileContentValidator:
             raise ProfileTagInvalidError()
         if any(tag.status == TagStatus.REJECTED for tag in tags):
             raise TagRejectedError()
+        # An alias id from an outdated client: it must pick the target tag again. Profiles never keep an alias.
+        if any(tag.status == TagStatus.MERGED for tag in tags):
+            raise ProfileTagInvalidError()
 
         return form, extra_attributes

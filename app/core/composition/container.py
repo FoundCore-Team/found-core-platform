@@ -11,6 +11,7 @@ from app.application.services.telegram_init_data import TelegramInitDataValidato
 from app.application.services.timezone_catalog import TimezoneCatalog
 from app.application.use_cases import (
     ActivateProfileUseCase,
+    ApproveTagUseCase,
     AuthenticateTelegramUserUseCase,
     BanUserUseCase,
     CreateCustomTagUseCase,
@@ -30,10 +31,13 @@ from app.application.use_cases import (
     GetRolesByCategoryUseCase,
     HideProfileUseCase,
     ListAdminActionsUseCase,
+    ListPendingTagsUseCase,
     ListReportGroupsUseCase,
+    MergeTagUseCase,
     OpenContactUseCase,
     PauseProfileUseCase,
     RecordProfileViewUseCase,
+    RejectTagUseCase,
     ResumeProfileUseCase,
     SendContactNotificationUseCase,
     SetAdminUseCase,
@@ -378,6 +382,34 @@ class Container:
         return CreateCustomTagUseCase(
             taxonomy_repository=self.taxonomy_repo(),
             tag_title_validator=self.tag_title_validator(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def list_pending_tags_use_case(self) -> ListPendingTagsUseCase:
+        return ListPendingTagsUseCase(taxonomy_repository=self.taxonomy_repo())
+
+    def approve_tag_use_case(self) -> ApproveTagUseCase:
+        return ApproveTagUseCase(
+            taxonomy_repository=self.taxonomy_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def reject_tag_use_case(self) -> RejectTagUseCase:
+        return RejectTagUseCase(
+            taxonomy_repository=self.taxonomy_repo(),
+            profile_repository=self.profile_repo(),
+            profile_embedding_repository=self.profile_embedding_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def merge_tag_use_case(self) -> MergeTagUseCase:
+        return MergeTagUseCase(
+            taxonomy_repository=self.taxonomy_repo(),
+            profile_repository=self.profile_repo(),
+            profile_embedding_repository=self.profile_embedding_repo(),
+            admin_action_repository=self.admin_action_repo(),
             unit_of_work=self.unit_of_work(),
         )
 
