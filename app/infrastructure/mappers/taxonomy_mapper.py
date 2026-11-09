@@ -1,5 +1,13 @@
-from app.domain.entities import CategoryEntity, RoleEntity, RoleFieldEntity, TagEntity
-from app.infrastructure.models import CategoryModel, RoleFieldModel, RoleModel, TagModel
+from app.domain.entities import (
+    CategoryEntity,
+    PendingTagEntity,
+    RoleEntity,
+    RoleFieldEntity,
+    TagCreatorEntity,
+    TagEntity,
+    TagScopeEntity,
+)
+from app.infrastructure.models import CategoryModel, RoleFieldModel, RoleModel, TagModel, TagScopeModel
 
 
 def map_category_model_to_category_entity(model: CategoryModel) -> CategoryEntity:
@@ -44,4 +52,26 @@ def map_tag_model_to_tag_entity(model: TagModel) -> TagEntity:
         created_by_user_id=model.created_by_user_id,
         usage_count=model.usage_count,
         merged_into_tag_id=model.merged_into_tag_id,
+    )
+
+
+def map_pending_tag_row_to_pending_tag_entity(
+    tag: TagModel,
+    profiles_count: int,
+    creator_first_name: str | None,
+    creator_username: str | None,
+    scopes: list[TagScopeModel],
+) -> PendingTagEntity:
+    # The creator columns come from an outer join: they are NULL when the tag has no author (the account is gone).
+    creator = (
+        TagCreatorEntity(user_id=tag.created_by_user_id, first_name=creator_first_name, username=creator_username)
+        if tag.created_by_user_id is not None and creator_first_name is not None
+        else None
+    )
+    return PendingTagEntity(
+        tag=map_tag_model_to_tag_entity(tag),
+        created_at=tag.created_at,
+        profiles_count=profiles_count,
+        creator=creator,
+        scopes=[TagScopeEntity(category_id=s.category_id, role_id=s.role_id) for s in scopes],
     )
