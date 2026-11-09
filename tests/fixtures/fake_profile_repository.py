@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import datetime, timezone
 
 from app.domain.entities import NewProfileEntity, ProfileEntity, TagEntity
 from app.domain.enums import ProfileStatus
@@ -136,3 +137,33 @@ class FakeProfileRepository(IProfileRepository):
 
     async def delete(self, profile_id: int) -> None:
         self._profiles.pop(profile_id, None)
+
+    async def detach_tag(self, tag_id: int) -> list[int]:
+        affected = []
+        for profile in sorted(self._profiles.values(), key=lambda p: p.id):
+            if any(t.id == tag_id for t in profile.tags):
+                profile.tags = [t for t in profile.tags if t.id != tag_id]
+                affected.append(profile.id)
+        return affected
+
+    async def replace_tag(self, source_id: int, target_id: int) -> list[int]:
+        affected = []
+        for profile in sorted(self._profiles.values(), key=lambda p: p.id):
+            if not any(t.id == source_id for t in profile.tags):
+                continue
+            tags = [t for t in profile.tags if t.id != source_id]
+            if not any(t.id == target_id for t in tags):
+                tags.append(replace(self._known_tags[target_id]))
+            profile.tags = sorted(tags, key=lambda t: t.id)
+            affected.append(profile.id)
+        return affected
+
+    async def touch(self, profile_ids: list[int]) -> dict[int, datetime]:
+        now = datetime.now(timezone.utc)
+        touched = {}
+        for profile_id in profile_ids:
+            profile = self._profiles.get(profile_id)
+            if profile is not None:
+                profile.updated_at = now
+                touched[profile_id] = now
+        return touched
