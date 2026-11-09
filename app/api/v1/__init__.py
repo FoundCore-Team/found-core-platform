@@ -4,6 +4,7 @@ from .routers import (
     admin_actions,
     admin_profiles,
     admin_reports,
+    admin_tags,
     admin_users,
     auth,
     contacts,
@@ -24,6 +25,7 @@ router_list = [
     admin_users,
     admin_profiles,
     admin_reports,
+    admin_tags,
     admin_actions,
 ]
 

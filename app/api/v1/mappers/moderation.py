@@ -4,17 +4,25 @@ from app.api.v1.schemas.moderation import (
     AdminActionSchema,
     AdminProfileSchema,
     AdminReportSchema,
+    AdminTagSchema,
     AdminUserSchema,
+    PendingTagPageSchema,
+    PendingTagSchema,
     ProfileReportsSchema,
     ReportGroupPageSchema,
     ReportGroupSchema,
     ReportOwnerSchema,
+    TagCreatorSchema,
+    TagModerationResultSchema,
+    TagScopeSchema,
 )
 from app.domain.entities import (
     AdminActionEntity,
+    PendingTagEntity,
     ProfileEntity,
     ReportEntity,
     ReportGroupEntity,
+    TagModerationResult,
     UserEntity,
 )
 
@@ -99,6 +107,53 @@ def map_user_entity_to_admin_user_schema(user: UserEntity) -> AdminUserSchema:
         ban_reason=user.ban_reason,
         created_at=user.created_at,
         last_active_at=user.last_active_at,
+    )
+
+
+def map_pending_tags_to_pending_tag_page_schema(
+    tags: list[PendingTagEntity], total: int, limit: int, offset: int
+) -> PendingTagPageSchema:
+    return PendingTagPageSchema(
+        items=[
+            PendingTagSchema(
+                id=item.tag.id,
+                title=item.tag.title,
+                normalized_title=item.tag.normalized_title,
+                created_at=item.created_at,
+                usage_count=item.tag.usage_count,
+                profiles_count=item.profiles_count,
+                creator=(
+                    TagCreatorSchema(
+                        user_id=item.creator.user_id,
+                        first_name=item.creator.first_name,
+                        username=item.creator.username,
+                    )
+                    if item.creator
+                    else None
+                ),
+                scopes=[TagScopeSchema(category_id=s.category_id, role_id=s.role_id) for s in item.scopes],
+            )
+            for item in tags
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+def map_tag_moderation_result_to_tag_moderation_result_schema(
+    result: TagModerationResult,
+) -> TagModerationResultSchema:
+    return TagModerationResultSchema(
+        tag=AdminTagSchema(
+            id=result.tag.id,
+            title=result.tag.title,
+            normalized_title=result.tag.normalized_title,
+            status=result.tag.status,
+            merged_into_tag_id=result.tag.merged_into_tag_id,
+            usage_count=result.tag.usage_count,
+        ),
+        affected_profiles=result.affected_profiles,
     )
 
 

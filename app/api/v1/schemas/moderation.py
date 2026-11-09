@@ -3,9 +3,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.v1.schemas.common import AdminReason
+from app.api.v1.schemas.common import AdminReason, Int64Id
 from app.api.v1.schemas.taxonomy import TagSchema
-from app.domain.enums import AdminActionType, AdminTargetType, ProfileStatus, ReportReason
+from app.domain.enums import AdminActionType, AdminTargetType, ProfileStatus, ReportReason, TagStatus
 
 
 class AdminReasonRequest(BaseModel):
@@ -104,6 +104,63 @@ class ProfileReportsSchema(BaseModel):
 class DismissedReportsSchema(BaseModel):
     profile_id: int
     dismissed_count: int
+
+
+class MergeTagRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_tag_id: Int64Id
+    reason: AdminReason
+
+
+class TagScopeSchema(BaseModel):
+    category_id: int
+    # None: the tag is scoped to the whole category.
+    role_id: int | None
+
+
+class TagCreatorSchema(BaseModel):
+    user_id: int
+    first_name: str
+    username: str | None
+
+
+class PendingTagSchema(BaseModel):
+    """One row of the tag moderation queue."""
+
+    id: int
+    title: str
+    normalized_title: str
+    created_at: datetime
+    usage_count: int
+    # Profiles that carry the tag right now.
+    profiles_count: int
+    # None if the author's account is gone.
+    creator: TagCreatorSchema | None
+    scopes: list[TagScopeSchema]
+
+
+class PendingTagPageSchema(BaseModel):
+    items: list[PendingTagSchema]
+    total: int
+    limit: int
+    offset: int
+
+
+class AdminTagSchema(BaseModel):
+    id: int
+    title: str
+    normalized_title: str
+    status: TagStatus
+    # Set exactly when the status is `merged`.
+    merged_into_tag_id: int | None
+    usage_count: int
+
+
+class TagModerationResultSchema(BaseModel):
+    tag: AdminTagSchema
+    # Profiles whose tags changed; 0 for a repeated action.
+    affected_profiles: int
 
 
 class AdminActionSchema(BaseModel):
