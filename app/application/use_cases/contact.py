@@ -119,10 +119,13 @@ class SendContactNotificationUseCase:
     @staticmethod
     def _should_skip(context: ContactNotificationContext) -> bool:
         # A pause does not stop the message: the owner still wants to know. A ban or a deleted account does, and so
-        # does an opener who lost their username (the message would have nothing to write to).
+        # does an opener who lost their username (the message would have nothing to write to). A profile hidden by an
+        # admin stops the message too, otherwise the violator could send their name, `@username` and a link to the
+        # hidden profile to other people through the bot.
         return (
             context.opener_is_banned
             or context.opener_is_deleted
+            or context.opener_profile_is_hidden
             or not context.notification.opener_username
             or context.owner_is_banned
             or context.owner_is_deleted

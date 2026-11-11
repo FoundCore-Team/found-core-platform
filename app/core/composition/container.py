@@ -11,27 +11,41 @@ from app.application.services.telegram_init_data import TelegramInitDataValidato
 from app.application.services.timezone_catalog import TimezoneCatalog
 from app.application.use_cases import (
     ActivateProfileUseCase,
+    ApproveTagUseCase,
     AuthenticateTelegramUserUseCase,
+    BanUserUseCase,
     CreateCustomTagUseCase,
     CreateProfileUseCase,
+    CreateReportUseCase,
     DeleteProfileUseCase,
+    DismissProfileReportsUseCase,
     EmbedProfileUseCase,
     GetCategoriesUseCase,
     GetFeedCardUseCase,
     GetFeedUseCase,
     GetMyProfilesUseCase,
     GetProfileFormConfigUseCase,
+    GetProfileReportsUseCase,
     GetProfileUseCase,
     GetRoleFieldsByRoleUseCase,
     GetRolesByCategoryUseCase,
+    HideProfileUseCase,
+    ListAdminActionsUseCase,
+    ListPendingTagsUseCase,
+    ListReportGroupsUseCase,
+    MergeTagUseCase,
     OpenContactUseCase,
     PauseProfileUseCase,
     RecordProfileViewUseCase,
+    RejectTagUseCase,
     ResumeProfileUseCase,
     SendContactNotificationUseCase,
+    SetAdminUseCase,
     SuggestTagsUseCase,
     SweepStaleEmbeddingsUseCase,
     SweepStaleNotificationsUseCase,
+    UnbanUserUseCase,
+    UnhideProfileUseCase,
     UpdateProfileUseCase,
     VerifyAccessTokenUseCase,
 )
@@ -54,11 +68,13 @@ from app.infrastructure.queues import CeleryEmbeddingJobQueue, CeleryNotificatio
 from app.infrastructure.repositories import (
     RedisFeedSessionRepository,
     RedisTaxonomyCacheRepository,
+    SqlAlchemyAdminActionRepository,
     SqlAlchemyContactOpenRepository,
     SqlAlchemyFeedRepository,
     SqlAlchemyProfileEmbeddingRepository,
     SqlAlchemyProfileRepository,
     SqlAlchemyProfileViewRepository,
+    SqlAlchemyReportRepository,
     SqlAlchemyTaxonomyRepository,
     SqlAlchemyUserRepository,
 )
@@ -106,6 +122,12 @@ class Container:
 
     def user_repo(self) -> SqlAlchemyUserRepository:
         return SqlAlchemyUserRepository(self.session)
+
+    def admin_action_repo(self) -> SqlAlchemyAdminActionRepository:
+        return SqlAlchemyAdminActionRepository(self.session)
+
+    def report_repo(self) -> SqlAlchemyReportRepository:
+        return SqlAlchemyReportRepository(self.session)
 
     def taxonomy_repo(self) -> SqlAlchemyTaxonomyRepository:
         return SqlAlchemyTaxonomyRepository(self.session, suggest_limit=settings.taxonomy.suggest_limit)
@@ -273,6 +295,68 @@ class Container:
             jwt_service=self.jwt_service(),
         )
 
+    def set_admin_use_case(self) -> SetAdminUseCase:
+        return SetAdminUseCase(
+            user_repository=self.user_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def ban_user_use_case(self) -> BanUserUseCase:
+        return BanUserUseCase(
+            user_repository=self.user_repo(),
+            report_repository=self.report_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def unban_user_use_case(self) -> UnbanUserUseCase:
+        return UnbanUserUseCase(
+            user_repository=self.user_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def list_admin_actions_use_case(self) -> ListAdminActionsUseCase:
+        return ListAdminActionsUseCase(admin_action_repository=self.admin_action_repo())
+
+    def hide_profile_use_case(self) -> HideProfileUseCase:
+        return HideProfileUseCase(
+            profile_repository=self.profile_repo(),
+            user_repository=self.user_repo(),
+            report_repository=self.report_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def unhide_profile_use_case(self) -> UnhideProfileUseCase:
+        return UnhideProfileUseCase(
+            profile_repository=self.profile_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def create_report_use_case(self) -> CreateReportUseCase:
+        return CreateReportUseCase(report_repository=self.report_repo(), unit_of_work=self.unit_of_work())
+
+    def list_report_groups_use_case(self) -> ListReportGroupsUseCase:
+        return ListReportGroupsUseCase(report_repository=self.report_repo())
+
+    def get_profile_reports_use_case(self) -> GetProfileReportsUseCase:
+        return GetProfileReportsUseCase(
+            profile_repository=self.profile_repo(),
+            user_repository=self.user_repo(),
+            report_repository=self.report_repo(),
+        )
+
+    def dismiss_profile_reports_use_case(self) -> DismissProfileReportsUseCase:
+        return DismissProfileReportsUseCase(
+            profile_repository=self.profile_repo(),
+            report_repository=self.report_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
     def get_categories_use_case(self) -> GetCategoriesUseCase:
         return GetCategoriesUseCase(
             taxonomy_repository=self.taxonomy_repo(),
@@ -298,6 +382,34 @@ class Container:
         return CreateCustomTagUseCase(
             taxonomy_repository=self.taxonomy_repo(),
             tag_title_validator=self.tag_title_validator(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def list_pending_tags_use_case(self) -> ListPendingTagsUseCase:
+        return ListPendingTagsUseCase(taxonomy_repository=self.taxonomy_repo())
+
+    def approve_tag_use_case(self) -> ApproveTagUseCase:
+        return ApproveTagUseCase(
+            taxonomy_repository=self.taxonomy_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def reject_tag_use_case(self) -> RejectTagUseCase:
+        return RejectTagUseCase(
+            taxonomy_repository=self.taxonomy_repo(),
+            profile_repository=self.profile_repo(),
+            profile_embedding_repository=self.profile_embedding_repo(),
+            admin_action_repository=self.admin_action_repo(),
+            unit_of_work=self.unit_of_work(),
+        )
+
+    def merge_tag_use_case(self) -> MergeTagUseCase:
+        return MergeTagUseCase(
+            taxonomy_repository=self.taxonomy_repo(),
+            profile_repository=self.profile_repo(),
+            profile_embedding_repository=self.profile_embedding_repo(),
+            admin_action_repository=self.admin_action_repo(),
             unit_of_work=self.unit_of_work(),
         )
 

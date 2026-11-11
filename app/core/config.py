@@ -106,6 +106,23 @@ class ContactConfig(BaseModel):
         return self
 
 
+class ModerationConfig(BaseModel):
+    # Plain BaseModel for the same reason as RunConfig.
+    # Paging of the admin lists (reports, pending tags, the action journal).
+    page_size_default: int = 50
+    page_size_max: int = 100
+    # Upper bound of `offset`, so a huge value is a 422 instead of a slow sequential scan.
+    max_offset: int = 100_000
+
+    @model_validator(mode="after")
+    def _check_consistency(self) -> "ModerationConfig":
+        if not 1 <= self.page_size_default <= self.page_size_max:
+            raise ValueError("moderation page_size_default must be between 1 and page_size_max")
+        if self.max_offset < 0:
+            raise ValueError("moderation max_offset must not be negative")
+        return self
+
+
 class NotificationConfig(BaseModel):
     # Plain BaseModel for the same reason as RunConfig.
     # stub writes the text to the log; telegram calls the Bot API with `BotConfig.token`.
@@ -237,6 +254,7 @@ class Settings(BaseSettings):
     profile: ProfileConfig = ProfileConfig()
     feed: FeedConfig = FeedConfig()
     contact: ContactConfig = ContactConfig()
+    moderation: ModerationConfig = ModerationConfig()
     worker: WorkerConfig
     embedding: EmbeddingConfig = EmbeddingConfig()
     notification: NotificationConfig = NotificationConfig()

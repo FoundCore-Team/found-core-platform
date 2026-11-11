@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import datetime, timezone
 
 from app.domain.entities import NewProfileEntity, ProfileEntity, TagEntity
 from app.domain.enums import ProfileStatus
@@ -112,8 +113,57 @@ class FakeProfileRepository(IProfileRepository):
         stored.tags = self._tags_by_ids(tag_ids)
         return self._copy(stored)
 
-    async def set_status(self, profile_id: int, status: ProfileStatus) -> None:
-        self._profiles[profile_id].status = status
+    async def set_status(self, profile_id: int, status: ProfileStatus) -> bool:
+        # Like the real UPDATE: a hidden (or missing) profile is left alone and False is returned.
+        profile = self._profiles.get(profile_id)
+        if profile is None or profile.status == ProfileStatus.HIDDEN_BY_ADMIN:
+            return False
+        profile.status = status
+        return True
+
+    async def hide(self, profile_id: int) -> bool:
+        profile = self._profiles.get(profile_id)
+        if profile is None or profile.status == ProfileStatus.HIDDEN_BY_ADMIN:
+            return False
+        profile.status = ProfileStatus.HIDDEN_BY_ADMIN
+        return True
+
+    async def unhide(self, profile_id: int) -> bool:
+        profile = self._profiles.get(profile_id)
+        if profile is None or profile.status != ProfileStatus.HIDDEN_BY_ADMIN:
+            return False
+        profile.status = ProfileStatus.PAUSED
+        return True
 
     async def delete(self, profile_id: int) -> None:
         self._profiles.pop(profile_id, None)
+
+    async def detach_tag(self, tag_id: int) -> list[int]:
+        affected = []
+        for profile in sorted(self._profiles.values(), key=lambda p: p.id):
+            if any(t.id == tag_id for t in profile.tags):
+                profile.tags = [t for t in profile.tags if t.id != tag_id]
+                affected.append(profile.id)
+        return affected
+
+    async def replace_tag(self, source_id: int, target_id: int) -> list[int]:
+        affected = []
+        for profile in sorted(self._profiles.values(), key=lambda p: p.id):
+            if not any(t.id == source_id for t in profile.tags):
+                continue
+            tags = [t for t in profile.tags if t.id != source_id]
+            if not any(t.id == target_id for t in tags):
+                tags.append(replace(self._known_tags[target_id]))
+            profile.tags = sorted(tags, key=lambda t: t.id)
+            affected.append(profile.id)
+        return affected
+
+    async def touch(self, profile_ids: list[int]) -> dict[int, datetime]:
+        now = datetime.now(timezone.utc)
+        touched = {}
+        for profile_id in profile_ids:
+            profile = self._profiles.get(profile_id)
+            if profile is not None:
+                profile.updated_at = now
+                touched[profile_id] = now
+        return touched

@@ -19,6 +19,10 @@ class IProfileEmbeddingRepository(ABC):
         """
 
     @abstractmethod
+    async def mark_pending_many(self, sources: dict[int, datetime]) -> None:
+        """`mark_pending` for many profiles at once; `sources` maps profile id to its `source_updated_at`."""
+
+    @abstractmethod
     async def save(
         self,
         profile_id: int,

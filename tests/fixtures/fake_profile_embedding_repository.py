@@ -48,6 +48,10 @@ class FakeProfileEmbeddingRepository(IProfileEmbeddingRepository):
         row.source_updated_at = source_updated_at
         row.updated_at = now
 
+    async def mark_pending_many(self, sources: dict[int, datetime]) -> None:
+        for profile_id in sorted(sources):
+            await self.mark_pending(profile_id, sources[profile_id])
+
     async def save(
         self,
         profile_id: int,

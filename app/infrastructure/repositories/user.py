@@ -59,6 +59,51 @@ class SqlAlchemyUserRepository(IUserRepository):
             update(UserModel).where(UserModel.id == user_id).values(active_profile_id=profile_id)
         )
 
+    async def set_ban(self, user_id: int, reason: str) -> UserEntity | None:
+        # The old state is part of the WHERE clause, so the check and the write are one atomic statement. `is_admin =
+        # false` keeps the "an admin is never banned" rule true even against a parallel grant of the admin role.
+        # `populate_existing` refreshes a user object this session may already hold.
+        stmt = (
+            update(UserModel)
+            .where(
+                UserModel.id == user_id,
+                UserModel.is_banned.is_(False),
+                UserModel.is_admin.is_(False),
+                UserModel.deleted_at.is_(None),
+            )
+            .values(is_banned=True, ban_reason=reason, token_version=UserModel.token_version + 1)
+            .returning(UserModel)
+            .execution_options(populate_existing=True)
+        )
+        model = (await self._session.execute(stmt)).scalar_one_or_none()
+        return map_user_model_to_user_entity(model) if model else None
+
+    async def clear_ban(self, user_id: int) -> UserEntity | None:
+        stmt = (
+            update(UserModel)
+            .where(UserModel.id == user_id, UserModel.is_banned.is_(True))
+            .values(is_banned=False, ban_reason=None)
+            .returning(UserModel)
+            .execution_options(populate_existing=True)
+        )
+        model = (await self._session.execute(stmt)).scalar_one_or_none()
+        return map_user_model_to_user_entity(model) if model else None
+
+    async def set_admin(self, user_id: int, is_admin: bool) -> UserEntity | None:
+        # Granting needs a user who is not an admin yet and not banned; revoking needs an admin.
+        conditions = [UserModel.id == user_id, UserModel.is_admin.is_(not is_admin)]
+        if is_admin:
+            conditions.append(UserModel.is_banned.is_(False))
+        stmt = (
+            update(UserModel)
+            .where(*conditions)
+            .values(is_admin=is_admin)
+            .returning(UserModel)
+            .execution_options(populate_existing=True)
+        )
+        model = (await self._session.execute(stmt)).scalar_one_or_none()
+        return map_user_model_to_user_entity(model) if model else None
+
     async def lock_for_update(self, user_id: int) -> None:
         # Selects only the id column, not the model: nothing is loaded into the session's identity map, so there is no
         # stale object to confuse a later read. The lock is held until the transaction commits or rolls back.

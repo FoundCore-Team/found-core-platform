@@ -1,7 +1,10 @@
+from dataclasses import replace
+
 from app.domain.entities import (
     CategoryEntity,
     NewTagEntity,
     NewTagScopeEntity,
+    PendingTagEntity,
     RoleEntity,
     RoleFieldEntity,
     TagEntity,
@@ -34,6 +37,7 @@ class FakeTaxonomyRepository(ITaxonomyRepository):
         self.lose_race_once = False
         self.calls: list[str] = []
         self.suggest_calls: list[dict] = []
+        self.lock_calls: list[list[int]] = []
         self._next_tag_id = max(self.tags, default=0) + 1
 
     def _record(self, name: str) -> None:
@@ -104,6 +108,39 @@ class FakeTaxonomyRepository(ITaxonomyRepository):
         self._record("create_tag_scope")
         if scope not in self.scopes:
             self.scopes.append(scope)
+
+    async def lock_tags_for_update(self, tag_ids: list[int]) -> list[TagEntity]:
+        self._record("lock_tags_for_update")
+        # The argument is kept as received: the use cases promise to pass ids in ascending order.
+        self.lock_calls.append(list(tag_ids))
+        return [replace(t) for t in sorted(self.tags.values(), key=lambda t: t.id) if t.id in tag_ids]
+
+    async def set_tag_status(self, tag_id: int, status: TagStatus) -> None:
+        self._record("set_tag_status")
+        self.tags[tag_id].status = status
+
+    async def merge_tag(self, source_id: int, target_id: int) -> None:
+        self._record("merge_tag")
+        for tag in self.tags.values():
+            if tag.merged_into_tag_id == source_id:
+                tag.merged_into_tag_id = target_id
+        self.tags[target_id].usage_count += self.tags[source_id].usage_count
+        self.tags[source_id].status = TagStatus.MERGED
+        self.tags[source_id].merged_into_tag_id = target_id
+
+    async def copy_tag_scopes(self, source_id: int, target_id: int) -> None:
+        self._record("copy_tag_scopes")
+        for scope in [s for s in self.scopes if s.tag_id == source_id]:
+            copy = NewTagScopeEntity(tag_id=target_id, category_id=scope.category_id, role_id=scope.role_id)
+            if copy not in self.scopes:
+                self.scopes.append(copy)
+
+    async def list_pending_tags(self, limit: int, offset: int) -> list[PendingTagEntity]:
+        # The queue joins tags, users, scopes and profile links; it is checked on real Postgres.
+        raise NotImplementedError
+
+    async def count_pending_tags(self) -> int:
+        return sum(1 for t in self.tags.values() if t.status == TagStatus.PENDING)
 
     def _store(
         self, title: str, normalized_title: str, status: TagStatus, created_by_user_id: int | None

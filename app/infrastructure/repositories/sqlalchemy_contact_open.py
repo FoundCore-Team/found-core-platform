@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.domain.entities import ContactNotificationContext, ContactOpenEntity, ContactWindowUsage, FeedViewer
-from app.domain.enums import NotificationStatus
+from app.domain.enums import NotificationStatus, ProfileStatus
 from app.domain.interfaces import IContactOpenRepository
 from app.infrastructure.mappers.contact_open_mapper import (
     map_contact_notification_row_to_contact_notification_context,
@@ -27,7 +27,7 @@ class SqlAlchemyContactOpenRepository(IContactOpenRepository):
             select(UserModel.username)
             .select_from(ProfileModel)
             .join(UserModel, UserModel.id == ProfileModel.user_id)
-            .where(ProfileModel.id == profile_id, *visible_to(viewer))
+            .where(ProfileModel.id == profile_id, *visible_to(viewer.user_id))
         )
         return result.scalar_one_or_none()
 
@@ -91,6 +91,7 @@ class SqlAlchemyContactOpenRepository(IContactOpenRepository):
                 ContactOpenModel.created_at,
                 opener_user.is_banned.label("opener_is_banned"),
                 (opener_user.deleted_at.is_not(None)).label("opener_is_deleted"),
+                (opener_profile.status == ProfileStatus.HIDDEN_BY_ADMIN).label("opener_profile_is_hidden"),
                 opener_user.first_name.label("opener_first_name"),
                 opener_user.last_name.label("opener_last_name"),
                 opener_user.username.label("opener_username"),

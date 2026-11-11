@@ -2,9 +2,9 @@
 
 Bypass the repository on purpose: `SqlAlchemyUserRepository.update()` (via
 `apply_user_entity_to_user_model`) intentionally never touches `is_banned`,
-`ban_reason`, or `token_version` -- there is no ban/logout endpoint yet
-(that's stage 8 work), so these fields can only be set directly against the
-DB for test setup.
+`ban_reason`, or `token_version`, and the admin endpoints enforce invariants
+(an admin is never banned, a ban bumps `token_version`). A test that needs a
+user in an exact state, whatever the invariants say, sets it directly here.
 """
 
 from sqlalchemy import text
@@ -21,6 +21,16 @@ async def set_user_banned(session: AsyncSession, user_id: int, ban_reason: str |
 
 async def set_user_admin(session: AsyncSession, user_id: int) -> None:
     await session.execute(text("UPDATE users SET is_admin = true WHERE id = :id"), {"id": user_id})
+    await session.commit()
+
+
+async def revoke_user_admin(session: AsyncSession, user_id: int) -> None:
+    await session.execute(text("UPDATE users SET is_admin = false WHERE id = :id"), {"id": user_id})
+    await session.commit()
+
+
+async def set_user_deleted(session: AsyncSession, user_id: int) -> None:
+    await session.execute(text("UPDATE users SET deleted_at = now() WHERE id = :id"), {"id": user_id})
     await session.commit()
 
 

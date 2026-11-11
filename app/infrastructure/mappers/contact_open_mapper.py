@@ -22,6 +22,7 @@ def map_contact_notification_row_to_contact_notification_context(
         created_at=row.created_at,
         opener_is_banned=row.opener_is_banned,
         opener_is_deleted=row.opener_is_deleted,
+        opener_profile_is_hidden=row.opener_profile_is_hidden,
         owner_is_banned=row.owner_is_banned,
         owner_is_deleted=row.owner_is_deleted,
         notification=ContactNotification(

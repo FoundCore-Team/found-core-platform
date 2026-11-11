@@ -247,7 +247,9 @@ class PauseProfileUseCase:
         if profile.status == ProfileStatus.PAUSED:
             return profile
 
-        await self._profile_repository.set_status(profile.id, ProfileStatus.PAUSED)
+        if not await self._profile_repository.set_status(profile.id, ProfileStatus.PAUSED):
+            # An admin hid the profile after we read it: the UPDATE refused to overwrite `hidden_by_admin`.
+            raise ProfileHiddenError()
         profile.status = ProfileStatus.PAUSED
 
         # The paused profile is no longer eligible, so the pointer moves to the newest
@@ -281,7 +283,8 @@ class ResumeProfileUseCase:
         if profile.status == ProfileStatus.ACTIVE:
             return profile
 
-        await self._profile_repository.set_status(profile.id, ProfileStatus.ACTIVE)
+        if not await self._profile_repository.set_status(profile.id, ProfileStatus.ACTIVE):
+            raise ProfileHiddenError()
         profile.status = ProfileStatus.ACTIVE
 
         if user.active_profile_id is None:
@@ -308,6 +311,9 @@ class DeleteProfileUseCase:
         profile = await self._profile_repository.get_by_id(profile_id)
         if profile is None or profile.user_id != user.id:
             raise ProfileNotFoundError()
+        # Otherwise the owner could delete a hidden profile and create a fresh one, getting around the moderation.
+        if profile.status == ProfileStatus.HIDDEN_BY_ADMIN:
+            raise ProfileHiddenError()
 
         await self._profile_repository.delete(profile.id)
 

@@ -1,4 +1,6 @@
-from sqlalchemy import delete, select, update
+from datetime import datetime, timezone
+
+from sqlalchemy import BigInteger, delete, literal, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,10 +134,84 @@ class SqlAlchemyProfileRepository(IProfileRepository):
         tags = await self._load_tags([model.id])
         return map_profile_model_to_profile_entity(model, tags[model.id])
 
-    async def set_status(self, profile_id: int, status: ProfileStatus) -> None:
-        await self._session.execute(
-            update(ProfileModel).where(ProfileModel.id == profile_id).values(status=status)
+    async def set_status(self, profile_id: int, status: ProfileStatus) -> bool:
+        result = await self._session.execute(
+            update(ProfileModel)
+            .where(ProfileModel.id == profile_id, ProfileModel.status != ProfileStatus.HIDDEN_BY_ADMIN)
+            .values(status=status)
+            .returning(ProfileModel.id)
         )
+        return result.scalar_one_or_none() is not None
+
+    async def hide(self, profile_id: int) -> bool:
+        result = await self._session.execute(
+            update(ProfileModel)
+            .where(
+                ProfileModel.id == profile_id,
+                ProfileModel.status.in_([ProfileStatus.ACTIVE, ProfileStatus.PAUSED]),
+            )
+            .values(status=ProfileStatus.HIDDEN_BY_ADMIN)
+            .returning(ProfileModel.id)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def unhide(self, profile_id: int) -> bool:
+        result = await self._session.execute(
+            update(ProfileModel)
+            .where(ProfileModel.id == profile_id, ProfileModel.status == ProfileStatus.HIDDEN_BY_ADMIN)
+            .values(status=ProfileStatus.PAUSED)
+            .returning(ProfileModel.id)
+        )
+        return result.scalar_one_or_none() is not None
 
     async def delete(self, profile_id: int) -> None:
         await self._session.execute(delete(ProfileModel).where(ProfileModel.id == profile_id))
+
+    async def detach_tag(self, tag_id: int) -> list[int]:
+        result = await self._session.execute(
+            delete(ProfileTagModel).where(ProfileTagModel.tag_id == tag_id).returning(ProfileTagModel.profile_id)
+        )
+        return sorted(result.scalars())
+
+    async def replace_tag(self, source_id: int, target_id: int) -> list[int]:
+        affected = list(
+            (
+                await self._session.execute(
+                    select(ProfileTagModel.profile_id)
+                    .where(ProfileTagModel.tag_id == source_id)
+                    .order_by(ProfileTagModel.profile_id)
+                )
+            ).scalars()
+        )
+        if not affected:
+            return []
+        # A profile that already carries the target keeps its single link: the conflicting insert is skipped.
+        await self._session.execute(
+            pg_insert(ProfileTagModel)
+            .from_select(
+                ["profile_id", "tag_id"],
+                select(ProfileTagModel.profile_id, literal(target_id, BigInteger)).where(
+                    ProfileTagModel.tag_id == source_id
+                ),
+            )
+            .on_conflict_do_nothing(index_elements=["profile_id", "tag_id"])
+        )
+        await self._session.execute(delete(ProfileTagModel).where(ProfileTagModel.tag_id == source_id))
+        return affected
+
+    async def touch(self, profile_ids: list[int]) -> dict[int, datetime]:
+        if not profile_ids:
+            return {}
+        now = datetime.now(timezone.utc)
+        # Rows are locked in id order first (lock order is tags, then profiles, then profile_embeddings).
+        await self._session.execute(
+            select(ProfileModel.id).where(ProfileModel.id.in_(profile_ids)).order_by(ProfileModel.id).with_for_update()
+        )
+        result = await self._session.execute(
+            update(ProfileModel)
+            .where(ProfileModel.id.in_(profile_ids))
+            .values(updated_at=now)
+            .returning(ProfileModel.id)
+            .execution_options(synchronize_session=False)
+        )
+        return {profile_id: now for profile_id in result.scalars()}

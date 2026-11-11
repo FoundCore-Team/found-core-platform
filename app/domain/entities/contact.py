@@ -44,6 +44,9 @@ class ContactNotificationContext:
     created_at: datetime
     opener_is_banned: bool
     opener_is_deleted: bool
+    # The opener's profile was hidden by an admin. Only the opener's: a hidden profile of the owner does not stop the
+    # news that somebody opened their contact.
+    opener_profile_is_hidden: bool
     owner_is_banned: bool
     owner_is_deleted: bool
     notification: ContactNotification

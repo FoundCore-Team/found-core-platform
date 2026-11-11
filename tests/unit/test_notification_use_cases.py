@@ -21,6 +21,7 @@ def make_context(**overrides) -> ContactNotificationContext:
         created_at=datetime.now(timezone.utc),
         opener_is_banned=False,
         opener_is_deleted=False,
+        opener_profile_is_hidden=False,
         owner_is_banned=False,
         owner_is_deleted=False,
         notification=make_notification(),
@@ -78,11 +79,19 @@ async def test_a_paused_owner_still_gets_the_message():
     [
         dict(opener_is_banned=True),
         dict(opener_is_deleted=True),
+        dict(opener_profile_is_hidden=True),
         dict(owner_is_banned=True),
         dict(owner_is_deleted=True),
         dict(notification=make_notification(opener_username="")),
     ],
-    ids=["opener banned", "opener deleted", "owner banned", "owner deleted", "opener lost the username"],
+    ids=[
+        "opener banned",
+        "opener deleted",
+        "opener profile hidden",
+        "owner banned",
+        "owner deleted",
+        "opener lost the username",
+    ],
 )
 async def test_a_changed_situation_skips_the_notification_without_calling_telegram(facts):
     env = Env(**facts)

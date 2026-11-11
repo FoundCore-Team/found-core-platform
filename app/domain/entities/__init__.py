@@ -11,6 +11,9 @@ __all__ = [
     "NewTagEntity",
     "TagEntity",
     "NewTagScopeEntity",
+    "TagScopeEntity",
+    "TagCreatorEntity",
+    "PendingTagEntity",
     "ProfileFormEntity",
     "NewProfileEntity",
     "ProfileEntity",
@@ -32,6 +35,12 @@ __all__ = [
     "ContactOpenEntity",
     "ContactWindowUsage",
     "OpenedContact",
+    "NewAdminActionEntity",
+    "AdminActionEntity",
+    "TagModerationResult",
+    "NewReportEntity",
+    "ReportEntity",
+    "ReportGroupEntity",
 ]
 
 from app.domain.entities.auth import (
@@ -59,6 +68,7 @@ from app.domain.entities.feed import (
     FeedSession,
     FeedViewer,
 )
+from app.domain.entities.moderation import AdminActionEntity, NewAdminActionEntity, TagModerationResult
 from app.domain.entities.profile import (
     CountryEntity,
     NewProfileEntity,
@@ -67,12 +77,16 @@ from app.domain.entities.profile import (
     TimezoneEntity,
 )
 from app.domain.entities.profile_embedding import ProfileEmbeddingEntity
+from app.domain.entities.report import NewReportEntity, ReportEntity, ReportGroupEntity
 from app.domain.entities.taxonomy import (
     CategoryEntity,
     NewTagEntity,
     NewTagScopeEntity,
+    PendingTagEntity,
     RoleEntity,
     RoleFieldEntity,
+    TagCreatorEntity,
     TagEntity,
+    TagScopeEntity,
 )
 from app.domain.entities.user import NewUserEntity, UserEntity

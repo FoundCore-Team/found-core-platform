@@ -59,6 +59,31 @@ class FakeUserRepository(IUserRepository):
     async def set_active_profile(self, user_id: int, profile_id: int | None) -> None:
         self._users[user_id].active_profile_id = profile_id
 
+    async def set_ban(self, user_id: int, reason: str) -> UserEntity | None:
+        # Same condition as the real conditional UPDATE: never bans an admin, an already banned or a deleted user.
+        user = self._users.get(user_id)
+        if user is None or user.is_banned or user.is_admin or user.deleted_at is not None:
+            return None
+        user.is_banned = True
+        user.ban_reason = reason
+        user.token_version += 1
+        return replace(user)
+
+    async def clear_ban(self, user_id: int) -> UserEntity | None:
+        user = self._users.get(user_id)
+        if user is None or not user.is_banned:
+            return None
+        user.is_banned = False
+        user.ban_reason = None
+        return replace(user)
+
+    async def set_admin(self, user_id: int, is_admin: bool) -> UserEntity | None:
+        user = self._users.get(user_id)
+        if user is None or user.is_admin == is_admin or (is_admin and user.is_banned):
+            return None
+        user.is_admin = is_admin
+        return replace(user)
+
     async def lock_for_update(self, user_id: int) -> None:
         self.locked_user_ids.append(user_id)
 

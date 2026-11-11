@@ -98,7 +98,7 @@ def _select_candidates(
         .join(UserModel, UserModel.id == ProfileModel.user_id)
         .outerjoin(ProfileEmbeddingModel, ProfileEmbeddingModel.profile_id == ProfileModel.id)
         .outerjoin(viewer_vector, true())
-        .where(*visible_to(viewer))
+        .where(*visible_to(viewer.user_id))
     )
 
 
@@ -232,7 +232,7 @@ class SqlAlchemyFeedRepository(IFeedRepository):
                     is_contact_opened.label("is_contact_opened"),
                 )
                 .join(UserModel, UserModel.id == ProfileModel.user_id)
-                .where(ProfileModel.id.in_(profile_ids), *visible_to(viewer))
+                .where(ProfileModel.id.in_(profile_ids), *visible_to(viewer.user_id))
             )
         ).all()
         if not rows:

@@ -64,12 +64,16 @@ Do not introduce another DI or composition pattern.
 
 * A repository never commits. It only prepares changes (`add`/`flush`/`execute`); the use case that owns the scenario commits **once, at the end**, through `IUnitOfWork` (`domain/interfaces/unit_of_work.py`).
 * Use cases depend on `IUnitOfWork`, never on `AsyncSession`. The implementation (`SqlAlchemyUnitOfWork`) is built by `Container` from the same session as the repositories.
+* Every admin action writes its `admin_actions` row (`IAdminActionRepository.add`, which never commits) in the same transaction as the change it records, and the use case commits once. The journal must never disagree with the state: either both are saved or neither. A repeat of an action that changes nothing writes no row and does not commit. A `reason` is mandatory for every admin action.
 * Read-only use cases do not commit. On failure nothing is committed and the request-scoped session is closed by `db_helper.session_getter`, which rolls back — there is deliberately no `rollback()` on `IUnitOfWork` until a real need appears (e.g. a long-lived session in a background job).
 
 ### Concurrency and queries
 
 * "SELECT, and if missing INSERT" is a race: two simultaneous requests both see nothing and both insert. Wherever a unique key can be hit by concurrent requests, insert with `ON CONFLICT DO NOTHING RETURNING` and treat the empty result as "someone else got there first"; the `UNIQUE` constraint is the final guarantee, the preceding `SELECT` is only an optimization.
 * Every such path needs an integration test that fires the requests in parallel (`asyncio.gather`) against real Postgres and asserts exactly one row and no error.
+* A change that must hold against concurrent writers is a conditional `UPDATE ... WHERE <old state> RETURNING` (not a `SELECT`, a check and an unconditional write); an empty result means "someone else got there first" and the use case re-reads and answers for the current state.
+* Row locks are taken in one fixed order, ascending id within a table: **tags → profiles → `profile_embeddings`**. Code that reads tags in order to save something that refers to them (the profile validator) takes `FOR KEY SHARE` and holds it until its commit; code that changes a tag's meaning (moderation) takes `FOR UPDATE`; a counter update on tags takes `FOR NO KEY UPDATE`, never `FOR UPDATE` (it would deadlock with the `KEY SHARE` holders). Rows read after waiting for a lock are loaded with `populate_existing`, otherwise the session returns the stale object.
+* A lock or a race fix comes with a test that fires the requests in parallel and **fails when the lock is removed** (check by temporarily removing it); a race test that passes either way proves nothing.
 * Every list query that is returned to a client orders by a unique tie-breaker as its last key (`ORDER BY sort_order, id`), otherwise equal rows may come back in a different order on each call.
 
 ### Migrations
@@ -103,6 +107,7 @@ Do not introduce another DI or composition pattern.
 ### Request-scoped auth
 
 * Protect an endpoint with `Depends(get_current_user)` (see `CLAUDE.md`, "Request-scoped auth") — never with middleware.
+* Every route under `/api/v1/admin` sits behind `Depends(require_admin)` declared on the `APIRouter` itself (a new route cannot forget it); a route that needs the admin's id also declares it as a parameter. The admin role is checked against the live `users.is_admin`, never against the token, and is granted only by `scripts/make_admin.py`.
 * Never trust mutable user state (ban status, `is_admin`/roles, token validity) from the JWT payload alone. Re-check it against the current DB row inside the auth dependency on every request.
 
 ### Request input
@@ -176,3 +181,5 @@ After making changes:
 * Auth behavior (ban, `token_version`, expiry) is tested over real HTTP against a real protected route, not only against the use case.
 * Seed and reference-data tests assert meaning (options are non-empty and unique, keys are unique per role), not only row counts that merely equal the source.
 * A test helper that writes data read by another session (e.g. an HTTP request) must `commit()` explicitly — repositories no longer commit.
+* An integration test does not call `session.rollback()` just to "see fresh data" (it expires every ORM object the test still holds and the next attribute access fails with `MissingGreenlet`); a `text()` query already sees committed data. Where a rollback is needed, copy the ids first.
+* `create_all` in the test fixtures does not alter an existing table: after a model change the test database `found_core_test_db` has to be dropped so the fixture creates it again.

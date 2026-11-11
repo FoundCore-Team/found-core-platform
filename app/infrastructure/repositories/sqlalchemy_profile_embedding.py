@@ -44,6 +44,31 @@ class SqlAlchemyProfileEmbeddingRepository(IProfileEmbeddingRepository):
         )
         await self._session.execute(stmt)
 
+    async def mark_pending_many(self, sources: dict[int, datetime]) -> None:
+        if not sources:
+            return
+        # Id order keeps the row locks of concurrent batches in the same order.
+        stmt = pg_insert(ProfileEmbeddingModel).values(
+            [
+                {
+                    "profile_id": profile_id,
+                    "status": EmbeddingStatus.PENDING,
+                    "source_updated_at": sources[profile_id],
+                    "updated_at": func.now(),
+                }
+                for profile_id in sorted(sources)
+            ]
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["profile_id"],
+            set_={
+                "status": stmt.excluded.status,
+                "source_updated_at": stmt.excluded.source_updated_at,
+                "updated_at": stmt.excluded.updated_at,
+            },
+        )
+        await self._session.execute(stmt)
+
     async def save(
         self,
         profile_id: int,

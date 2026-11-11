@@ -133,6 +133,11 @@ class CreateCustomTagUseCase:
             tag = await self._taxonomy_repository.get_tag_by_normalized_title(normalized_title)
         assert tag is not None
 
+        if tag.status == TagStatus.MERGED:
+            # The title belongs to an alias: continue with the tag it was merged into, so no new duplicate appears
+            # and the caller gets the canonical title ("NodeJS" -> "Node.js").
+            (tag,) = await self._taxonomy_repository.get_tags_by_ids([tag.merged_into_tag_id])
+
         if tag.status == TagStatus.REJECTED:
             raise TagRejectedError()
 

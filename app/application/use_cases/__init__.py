@@ -23,8 +23,23 @@ __all__ = [
     "OpenContactUseCase",
     "SendContactNotificationUseCase",
     "SweepStaleNotificationsUseCase",
+    "SetAdminUseCase",
+    "BanUserUseCase",
+    "UnbanUserUseCase",
+    "ListAdminActionsUseCase",
+    "HideProfileUseCase",
+    "UnhideProfileUseCase",
+    "CreateReportUseCase",
+    "ListReportGroupsUseCase",
+    "GetProfileReportsUseCase",
+    "DismissProfileReportsUseCase",
+    "ListPendingTagsUseCase",
+    "ApproveTagUseCase",
+    "RejectTagUseCase",
+    "MergeTagUseCase",
 ]
 
+from app.application.use_cases.admin_journal import ListAdminActionsUseCase
 from app.application.use_cases.auth import AuthenticateTelegramUserUseCase, VerifyAccessTokenUseCase
 from app.application.use_cases.contact import (
     OpenContactUseCase,
@@ -44,6 +59,19 @@ from app.application.use_cases.profile import (
     ResumeProfileUseCase,
     UpdateProfileUseCase,
 )
+from app.application.use_cases.profile_moderation import HideProfileUseCase, UnhideProfileUseCase
+from app.application.use_cases.report import CreateReportUseCase
+from app.application.use_cases.report_moderation import (
+    DismissProfileReportsUseCase,
+    GetProfileReportsUseCase,
+    ListReportGroupsUseCase,
+)
+from app.application.use_cases.tag_moderation import (
+    ApproveTagUseCase,
+    ListPendingTagsUseCase,
+    MergeTagUseCase,
+    RejectTagUseCase,
+)
 from app.application.use_cases.taxonomy import (
     CreateCustomTagUseCase,
     GetCategoriesUseCase,
@@ -51,3 +79,4 @@ from app.application.use_cases.taxonomy import (
     GetRolesByCategoryUseCase,
     SuggestTagsUseCase,
 )
+from app.application.use_cases.user_moderation import BanUserUseCase, SetAdminUseCase, UnbanUserUseCase

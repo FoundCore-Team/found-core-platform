@@ -1,4 +1,19 @@
-from sqlalchemy import BigInteger, Boolean, Enum, ForeignKey, Index, Integer, String, UniqueConstraint
+from datetime import datetime
+
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -52,6 +67,18 @@ class TagModel(Base):
     __tablename__ = "tags"
     __table_args__ = (
         Index("ix_tags_title_trgm", "title", postgresql_using="gin", postgresql_ops={"title": "gin_trgm_ops"}),
+        # The moderation queue reads pending tags oldest first; pending is a small part of the table, so the index is tiny.
+        Index(
+            "ix_tags_pending_created_at",
+            "created_at",
+            "id",
+            postgresql_where=text("status = 'pending'"),
+        ),
+        # An alias points at its target and only an alias does.
+        CheckConstraint(
+            "(status = 'merged') = (merged_into_tag_id IS NOT NULL)",
+            name="merged_target_matches_status",
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -65,6 +92,11 @@ class TagModel(Base):
         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     usage_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    # No ondelete: a tag that other tags are merged into must not be deleted from under its aliases.
+    merged_into_tag_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("tags.id"), nullable=True, index=True
+    )
 
 
 class TagScopeModel(Base):

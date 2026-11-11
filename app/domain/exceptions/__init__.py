@@ -9,6 +9,9 @@ __all__ = [
     "RoleNotFoundError",
     "TagTitleInvalidError",
     "TagRejectedError",
+    "TagNotFoundError",
+    "TagStatusConflictError",
+    "TagMergeTargetInvalidError",
     "ProfileNotFoundError",
     "ProfileAlreadyExistsError",
     "ProfileNotActivatableError",
@@ -32,6 +35,10 @@ __all__ = [
     "ContactLimitReachedError",
     "NotificationUnavailableError",
     "NotificationRejectedError",
+    "AdminRequiredError",
+    "UserNotFoundError",
+    "CannotBanAdminError",
+    "ReportProfileNotFoundError",
 ]
 
 from app.domain.exceptions.auth import (
@@ -54,6 +61,7 @@ from app.domain.exceptions.feed import (
     NoActiveProfileError,
     UsernameRequiredError,
 )
+from app.domain.exceptions.moderation import AdminRequiredError, CannotBanAdminError, UserNotFoundError
 from app.domain.exceptions.notification import NotificationRejectedError, NotificationUnavailableError
 from app.domain.exceptions.profile import (
     InvalidCountryError,
@@ -68,10 +76,14 @@ from app.domain.exceptions.profile import (
     TooFewTagsError,
     TooManyTagsError,
 )
+from app.domain.exceptions.report import ReportProfileNotFoundError
 from app.domain.exceptions.taxonomy import (
     CategoryNotFoundError,
     RoleNotFoundError,
+    TagMergeTargetInvalidError,
+    TagNotFoundError,
     TagRejectedError,
+    TagStatusConflictError,
     TagTitleInvalidError,
 )
 from app.domain.exceptions.user import UserBannedError
