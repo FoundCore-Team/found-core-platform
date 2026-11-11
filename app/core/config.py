@@ -4,7 +4,7 @@ import math
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, PostgresDsn, RedisDsn, SecretStr, model_validator
+from pydantic import BaseModel, Field, PostgresDsn, RedisDsn, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Public placeholders from .env.template / .env.test; a production deployment must never run with them.
@@ -234,6 +234,43 @@ class FeedConfig(BaseModel):
         return hashlib.sha256(json.dumps(values, sort_keys=True).encode("ascii")).hexdigest()
 
 
+class RateLimitRule(BaseModel):
+    # At most `limit` requests per user in one fixed window of `window_seconds`.
+    limit: int = Field(gt=0)
+    window_seconds: int = Field(gt=0)
+
+
+class RateLimitConfig(BaseModel):
+    # Plain BaseModel for the same reason as RunConfig. One field per `RateLimitAction` member, named like its value
+    # (a unit test keeps the two in step). Override one number with
+    # APP_CONFIG__RATE_LIMIT__<ACTION>__LIMIT or __WINDOW_SECONDS.
+    contact_open: RateLimitRule = RateLimitRule(limit=10, window_seconds=60)
+    tag_suggest: RateLimitRule = RateLimitRule(limit=60, window_seconds=60)
+    tag_create: RateLimitRule = RateLimitRule(limit=5, window_seconds=60)
+    tag_create_daily: RateLimitRule = RateLimitRule(limit=30, window_seconds=86400)
+    report_create: RateLimitRule = RateLimitRule(limit=10, window_seconds=86400)
+    feed_request: RateLimitRule = RateLimitRule(limit=60, window_seconds=60)
+    feed_session_build: RateLimitRule = RateLimitRule(limit=10, window_seconds=60)
+    feed_card: RateLimitRule = RateLimitRule(limit=30, window_seconds=60)
+    feed_card_daily: RateLimitRule = RateLimitRule(limit=300, window_seconds=86400)
+    feed_view: RateLimitRule = RateLimitRule(limit=60, window_seconds=60)
+    profile_write: RateLimitRule = RateLimitRule(limit=5, window_seconds=600)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _complete_partial_rules(cls, data):
+        # pydantic-settings does not merge a nested env value into the field's default, so setting only
+        # ..._CONTACT_OPEN__LIMIT would arrive without `window_seconds`. Fill the missing number from the default.
+        if not isinstance(data, dict):
+            return data
+        completed = dict(data)
+        for name, field in cls.model_fields.items():
+            given = data.get(name)
+            if isinstance(given, dict):
+                completed[name] = {**field.default.model_dump(), **given}
+        return completed
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(".env",),
@@ -255,6 +292,7 @@ class Settings(BaseSettings):
     feed: FeedConfig = FeedConfig()
     contact: ContactConfig = ContactConfig()
     moderation: ModerationConfig = ModerationConfig()
+    rate_limit: RateLimitConfig = RateLimitConfig()
     worker: WorkerConfig
     embedding: EmbeddingConfig = EmbeddingConfig()
     notification: NotificationConfig = NotificationConfig()

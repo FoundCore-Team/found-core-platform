@@ -1,7 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.core.config import Settings
+from app.core.config import RateLimitConfig, Settings
+from app.domain.enums import RateLimitAction
 
 STRONG_SECRET = "k3J9vQ2mXw7LpR5tYb8NcA4dFg6HsZ1u"
 REAL_BOT_TOKEN = "7012345678:AAH-real-looking-token-value"
@@ -177,6 +178,54 @@ def test_contact_limit_defaults():
 def test_contact_config_rejects_non_positive_values(override):
     with pytest.raises(ValidationError):
         _settings(contact=override)
+
+
+@pytest.mark.parametrize(
+    "action, limit, window_seconds",
+    [
+        ("contact_open", 10, 60),
+        ("tag_suggest", 60, 60),
+        ("tag_create", 5, 60),
+        ("tag_create_daily", 30, 86400),
+        ("report_create", 10, 86400),
+        ("feed_request", 60, 60),
+        ("feed_session_build", 10, 60),
+        ("feed_card", 30, 60),
+        ("feed_card_daily", 300, 86400),
+        ("feed_view", 60, 60),
+        ("profile_write", 5, 600),
+    ],
+)
+def test_rate_limit_defaults_match_the_plan(action, limit, window_seconds):
+    rule = getattr(_settings().rate_limit, action)
+
+    assert (rule.limit, rule.window_seconds) == (limit, window_seconds)
+
+
+def test_rate_limit_config_has_exactly_one_rule_per_action():
+    # A new RateLimitAction without a config field would fail at the first request; a field without an action is dead.
+    assert set(RateLimitConfig.model_fields) == {action.value for action in RateLimitAction}
+
+
+@pytest.mark.parametrize("override", [{"limit": 0}, {"limit": -1}, {"window_seconds": 0}, {"window_seconds": -60}])
+def test_rate_limit_rule_rejects_non_positive_values(override):
+    with pytest.raises(ValidationError):
+        _settings(rate_limit={"contact_open": {"limit": 10, "window_seconds": 60, **override}})
+
+
+def test_overriding_one_number_of_a_rate_limit_keeps_the_other_default():
+    rule = _settings(rate_limit={"contact_open": {"limit": 3}}).rate_limit.contact_open
+
+    assert (rule.limit, rule.window_seconds) == (3, 60)
+
+
+def test_rate_limit_override_from_the_environment_keeps_the_other_default(monkeypatch):
+    monkeypatch.setenv("APP_CONFIG__RATE_LIMIT__PROFILE_WRITE__WINDOW_SECONDS", "120")
+
+    settings = _settings()
+
+    assert (settings.rate_limit.profile_write.limit, settings.rate_limit.profile_write.window_seconds) == (5, 120)
+    assert settings.rate_limit.contact_open.limit == 10
 
 
 def test_unknown_environment_name_is_rejected():
