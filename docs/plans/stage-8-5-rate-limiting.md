@@ -2,7 +2,7 @@
 
 Ветка: `feat/rate-limiting`. Перед началом прочитать `CLAUDE.md` и `docs/rules.md`: они обязательны. Этот документ ничего не отменяет, он уточняет этап 8.5.
 
-Этап вынесен из `docs/plans/stage-8-moderation.md` по решению пользователя (модерация и лимиты не связаны по коду, отдельный PR проще читать). Решения 35–42 ниже перенесены из плана этапа 8 **без изменений по существу**, номера сохранены, чтобы ссылки из истории не терялись. Решения со звёздочкой `*` выбрал исполнитель плана, они **ещё не утверждены пользователем** и ждут ревью перед стартом этапа.
+Этап вынесен из `docs/plans/stage-8-moderation.md` по решению пользователя (модерация и лимиты не связаны по коду, отдельный PR проще читать). Решения 35–42 ниже перенесены из плана этапа 8 **без изменений по существу**, номера сохранены, чтобы ссылки из истории не терялись. Решения 36, 38, 39, 40 (раньше со звёздочкой `*`, их выбирал исполнитель плана) утверждены пользователем 2026-11-11, звёздочки сняты. В тот же день пользователь утвердил добавки: `feed_card_daily` и `profile_write` в решении 36, имя поля `retry_after_seconds` в решении 41 и новые решения 43–45 (см. раздел 7).
 
 **Зависит от этапа 8** (должен быть влит в `main`): лимит `report_create` вешается на `POST /reports`, а админские эндпоинты должны существовать, чтобы проверить, что лимиты их не касаются.
 
@@ -31,13 +31,16 @@
 | # | Решение | Почему | Что отброшено |
 |---|---|---|---|
 | 35 | **Фиксированное окно в Redis на пользователя и действие:** ключ `rate:{action}:{user_id}:{window_index}`, `window_index = int(time.time() // window_seconds)`; `INCR` и `EXPIRE ... NX` в одном `pipeline(transaction=True)`, ответ сравнивается с лимитом. Lua не нужен: `INCR` атомарен и сам возвращает новое значение. Счётчик растёт и на отклонённых запросах. | Один round-trip, ключи истекают сами. Всплеск до 2× на границе окна принят; скользящее окно (sorted set + Lua) — раздел 6. | Скользящее окно сразу. Счётчик только по успешным запросам. |
-| 36* | **Лимиты по умолчанию** (`RateLimitConfig`, у каждого `{limit, window_seconds}`): `contact_open` 10/60 с (суточные 20 остаются в Postgres), `tag_create` 5/60 с и `tag_create_daily` 30/86400 с, `report_create` 10/86400 с, `tag_suggest` 60/60 с, `feed_request` 60/60 с, `feed_session_build` 10/60 с, `feed_card` 30/60 с (антискрейпинг), `feed_view` 60/60 с. Суточные окна по UTC (`epoch // 86400`). Значения положительные (валидатор). Меняются через `APP_CONFIG__RATE_LIMIT__<ACTION>__LIMIT` / `__WINDOW_SECONDS`. | Обычный человек ни в один не упирается. Контакт 10/мин не даёт сжечь 20 за секунды. У `tag_create` два лимита: суточный просил пользователь, всплеск режет минутный. `report_create` — единственная защита от цикла «жалоба → закрытие → новая жалоба» (этап 8, решение 9). | Единый лимит на всё. Сутки по таймзоне пользователя. |
-| 37 | **Сбой Redis — fail-open:** любой `RedisError` → запрос разрешён, предупреждение в лог, флаг `_unavailable` на время запроса (как `redis_feed_session.py`). Логическая БД кэша (`redis_client` из `Container`). | Сбой Redis может ухудшить защиту, но не должен ронять API. | Fail-closed. Отдельная БД Redis. |
-| 38* | **Механизм.** Порт `IRateLimiter` (`domain/interfaces`) возвращает **решение** `RateLimitDecision(allowed, retry_after_seconds)`, не бросает: репозиторий не принимает решений и не бросает доменных исключений. Реализация `RedisRateLimiter` (`infrastructure/repositories/redis_rate_limiter.py`). Решение превращает в исключение `RateLimitExceededError(action, retry_after)` сервис `RateLimitGuard` (`application/services/rate_limit_guard.py`): им пользуются двое — зависимость роутеров и `GetFeedUseCase`. | Один код «решение → исключение» вместо двух копий. | Исключение из самого лимитера. Два места с `if not allowed`. |
-| 39* | **Применение двумя способами.** (а) Фабрика зависимостей `rate_limited(action)` в `api/v1/dependencies/rate_limit.py`: `dependencies=[Depends(rate_limited(RateLimitAction.TAG_SUGGEST))]`; внутри `Depends(get_current_user)` и `Depends(get_container)`. (б) `GetFeedUseCase` вызывает `RateLimitGuard.check(FEED_SESSION_BUILD, user.id)` **только при промахе сессии**, перед `_build_session`. Роутер ленты превращает `RateLimitExceededError` в `429` той же функцией, что и зависимость. | Тот же `Depends()` + `Container`, второго механизма DI нет. Только use case знает, был ли промах сессии. | Middleware. Лимит всей ленты только в use case. |
-| 40* | **Порядок: аутентификация → лимит → `require_username` → проверки use case.** `get_current_user` кэшируется на запрос. Невалидный токен (`401`/`403`) счётчик не увеличивает. `409 username_required` / `no_active_profile` тоже тратят бюджет. | Лимит защищает инфраструктуру от наплыва аутентифицированных запросов, `429` не зависит от состояния профиля. | Лимит после `require_username`. |
-| 41 | **Ответ:** `429 {"detail": {"code": "rate_limited", "message", "action", "retry_after"}}` и заголовок `Retry-After` (секунды до конца окна, ≥ 1). **Админы на пользовательских эндпоинтах не исключены.** Админских эндпоинтов лимиты не касаются. | Админ в роли пользователя — пользователь (украденный админский токен не даёт безлимитного скрейпинга). | Исключить админов. |
+| 36 | **Лимиты по умолчанию** (`RateLimitConfig`, у каждого `{limit, window_seconds}`): `contact_open` 10/60 с (суточные 20 остаются в Postgres), `tag_create` 5/60 с и `tag_create_daily` 30/86400 с, `report_create` 10/86400 с, `tag_suggest` 60/60 с, `feed_request` 60/60 с, `feed_session_build` 10/60 с, `feed_card` 30/60 с и `feed_card_daily` 300/86400 с (антискрейпинг: одной минутной квоты хватило бы на ~43 000 карточек в сутки), `feed_view` 60/60 с, `profile_write` 5/600 с (создание и правка анкеты: каждое сохранение ставит пересчёт эмбеддинга, а настоящий OpenAI стоит денег; пять изменений за десять минут). Суточные окна по UTC (`epoch // 86400`). Значения положительные (валидатор). Меняются через `APP_CONFIG__RATE_LIMIT__<ACTION>__LIMIT` / `__WINDOW_SECONDS`. | Обычный человек ни в один не упирается. Контакт 10/мин не даёт сжечь 20 за секунды. У `tag_create` два лимита: суточный просил пользователь, всплеск режет минутный. `report_create` — единственная защита от цикла «жалоба → закрытие → новая жалоба» (этап 8, решение 9). | Единый лимит на всё. Сутки по таймзоне пользователя. |
+| 37 | **Сбой Redis — fail-open:** любой `RedisError` → запрос разрешён, предупреждение в лог. Флага «Redis недоступен» нет (см. раздел 7, пункт 6). Логическая БД кэша (`redis_client` из `Container`). | Сбой Redis может ухудшить защиту, но не должен ронять API. | Fail-closed. Отдельная БД Redis. |
+| 38 | **Механизм.** Порт `IRateLimiter` (`domain/interfaces`) возвращает **решение** `RateLimitDecision(allowed, retry_after_seconds)`, не бросает: репозиторий не принимает решений и не бросает доменных исключений. Реализация `RedisRateLimiter` (`infrastructure/repositories/redis_rate_limiter.py`). Решение превращает в исключение `RateLimitExceededError(action, retry_after)` сервис `RateLimitGuard` (`application/services/rate_limit_guard.py`): им пользуются двое — зависимость роутеров и `GetFeedUseCase`. | Один код «решение → исключение» вместо двух копий. | Исключение из самого лимитера. Два места с `if not allowed`. |
+| 39 | **Применение двумя способами.** (а) Фабрика зависимостей `rate_limited(action)` в `api/v1/dependencies/rate_limit.py`: `dependencies=[Depends(rate_limited(RateLimitAction.TAG_SUGGEST))]`; внутри `Depends(get_current_user)` и `Depends(get_container)`. (б) `GetFeedUseCase` вызывает `RateLimitGuard.check(FEED_SESSION_BUILD, user.id)` **только при промахе сессии**, перед `_build_session`. Роутер ленты превращает `RateLimitExceededError` в `429` той же функцией, что и зависимость. | Тот же `Depends()` + `Container`, второго механизма DI нет. Только use case знает, был ли промах сессии. | Middleware. Лимит всей ленты только в use case. |
+| 40 | **Порядок: аутентификация → лимит → `require_username` → проверки use case.** `get_current_user` кэшируется на запрос. Невалидный токен (`401`/`403`) счётчик не увеличивает. `409 username_required` / `no_active_profile` тоже тратят бюджет. | Лимит защищает инфраструктуру от наплыва аутентифицированных запросов, `429` не зависит от состояния профиля. | Лимит после `require_username`. |
+| 41 | **Ответ:** `429 {"detail": {"code": "rate_limited", "message", "action", "retry_after_seconds"}}` (по `code` фронт отличает его от `contact_limit_reached`, суточного лимита контактов) и заголовок `Retry-After` (секунды до конца окна, ≥ 1). **Админы на пользовательских эндпоинтах не исключены.** Админских эндпоинтов лимиты не касаются. | Админ в роли пользователя — пользователь (украденный админский токен не даёт безлимитного скрейпинга). | Исключить админов. |
 | 42 | **Лимиты по IP (nginx) — этап 10.** Скользящее окно — раздел 6. | Вне области этапа. | — |
+| 43 | **`POST /auth/telegram` в этом этапе не ограничиваем:** лимит по IP делает nginx (этап 10). | До проверки `initData` у запроса нет `user_id`, ключ по пользователю не построить; подпись проверяется локально, ручка дешёвая. | Лимит по `telegram_id` после проверки подписи (отдельный путь кода и тесты). |
+| 44 | **Закрываем TODO в `BanUserUseCase` в начале этапа блокировкой строки:** `BanUserUseCase` и `UnbanUserUseCase` первой строкой берут `IUserRepository.lock_for_update(user_id)` (`SELECT id ... FOR UPDATE`, как в `OpenContactUseCase`), потом читают пользователя. Бан и разбан одного пользователя идут друг за другом, состояние между чтением и записью не меняется. Условный `UPDATE` и ветка перечитывания остаются как страховка; ветка «забанен и разбанен между чтениями» при взятом локе недостижима и осталась как громкий отказ (`404`) на случай сломанного лока. Нового исключения и нового кода ответа нет. | Один замок вместо нового состояния ответа: админ всегда получает `200` с актуальным состоянием, меньше кода и тестов. | Повторить `UPDATE` один раз, потом `409 ban_state_changed` (сначала выбрано, потом заменено на лок по предложению пользователя, см. раздел 7). Сразу `409`. Цикл повторов. |
+| 45 | **Повторное открытие контакта (`200`, бесплатный повтор) тоже считается в `contact_open`:** лимит стоит на роутере до use case и не знает, повтор это или нет. Двойной клик тратит 2 из 10 в минуту. | Проще и надёжнее: зависимость не лезет внутрь use case. | Считать только первое открытие (пришлось бы переносить проверку внутрь use case, после проверки пары). |
 
 ## 3. Технические детали без продуктового эффекта
 
@@ -46,19 +49,20 @@
 1. **Домен:** `entities/rate_limit.py` (`RateLimitDecision`), `enums/rate_limit.py` (`RateLimitAction`), `exceptions/rate_limit.py` (`RateLimitExceededError(action, retry_after)`), порт `interfaces/rate_limiter.py` (`IRateLimiter.hit(action, user_id) -> RateLimitDecision`).
 2. **Конфиг (plain `BaseModel`):** `RateLimitRule(limit, window_seconds)` с проверкой «положительные», `RateLimitConfig` — по полю на каждый член `RateLimitAction`. В `Settings`: `rate_limit` с дефолтами. Секретов нет.
 3. **`Container`:** `rate_limiter()` (словарь `{action: (limit, window)}` из `settings.rate_limit`; тест: у каждого члена enum есть поле) и `rate_limit_guard()`; `get_feed_use_case()` получает guard.
-4. **Rate limiter:** экземпляр на запрос; после первого `RedisError` — `_unavailable`. `retry_after = window_seconds - (now % window_seconds)`, не меньше 1. `pipeline(transaction=True)`: `incr`, `expire(key, window_seconds, nx=True)`.
+4. **Rate limiter:** экземпляр на проверку (каждая зависимость берёт свой из контейнера); флага `_unavailable` нет. `retry_after = window_seconds - (now % window_seconds)`, не меньше 1. `pipeline(transaction=True)`: `incr`, `expire(key, window_seconds, nx=True)`.
 5. **Тесты и Redis:** эндпоинты с лимитами используют фикстуру `taxonomy_client` (подменяет `get_container` клиентом Redis теста); в её докстринг — «для всех эндпоинтов, которые ходят в Redis». Счётчики не текут: `redis_client` делает `flushdb` перед каждым тестом.
 6. **`GetFeedUseCase`:** `RateLimitGuard` в конструкторе; проверка `FEED_SESSION_BUILD` — после `_find_session`, до `_build_session`.
 7. **Какие эндпоинты получают лимит:**
 
 | Эндпоинт | Действие |
 |---|---|
-| `POST /profiles/{id}/contact` | `contact_open` |
+| `POST /profiles/{id}/contact` | `contact_open` (повтор `200` тоже считается, решение 45) |
+| `POST /profiles`, `PUT /profiles/{id}` | `profile_write` (`pause`/`resume`/`activate`/`delete` без лимита: они не ставят пересчёт эмбеддинга) |
 | `GET /taxonomy/tags/suggest` | `tag_suggest` |
 | `POST /taxonomy/tags/custom` | `tag_create` и `tag_create_daily` |
 | `POST /reports` | `report_create` (повтор `200` тоже считается) |
 | `GET /feed` | `feed_request`, плюс `feed_session_build` при промахе сессии (в use case) |
-| `GET /feed/cards/{id}` | `feed_card` |
+| `GET /feed/cards/{id}` | `feed_card` и `feed_card_daily` |
 | `POST /feed/views` | `feed_view` |
 
 ## 4. Файлы
@@ -73,7 +77,8 @@
 Изменяемые:
 - `app/core/config.py`, `app/core/composition/container.py`
 - `app/application/use_cases/feed.py`
-- `app/api/v1/routers/{contacts,taxonomy,reports,feed}.py`
+- `app/api/v1/routers/{contacts,taxonomy,reports,feed,profiles}.py`
+- решение 44 (TODO бана, лок): `app/application/use_cases/user_moderation.py` (`BanUserUseCase`, `UnbanUserUseCase`), `tests/unit/test_user_moderation_use_cases.py`, `tests/integration/test_admin_races.py`
 - `.env.template` (закомментированные примеры `APP_CONFIG__RATE_LIMIT__...`), `CLAUDE.md`, `docs/rules.md`
 - `tests/integration/conftest.py` (докстринг `taxonomy_client`, если он там)
 
@@ -84,11 +89,13 @@
 - **`RateLimitGuard`**: решение `allowed=False` → `RateLimitExceededError` с `action` и `retry_after`.
 - Зависимость **`rate_limited`**: `429`, тело, `Retry-After`.
 - **`GetFeedUseCase`:** построение сессии вызывает `RateLimitGuard` один раз, попадание в сессию — ни разу; `RateLimitExceededError` не оставляет сессии в Redis.
-- **`Settings`:** лимиты положительные, у каждого члена `RateLimitAction` есть поле, дефолты совпадают с решением 36.
+- **`Settings`:** лимиты положительные, у каждого члена `RateLimitAction` есть поле, дефолты совпадают с решением 36 (включая `feed_card_daily` 300/86400 и `profile_write` 5/600).
+- **`BanUserUseCase` и `UnbanUserUseCase` (решение 44):** оба берут `lock_for_update` до чтения (проверка по `FakeUserRepository.locked_user_ids`); «забанен кем-то другим» по-прежнему отвечает `200` с текущим состоянием.
 
 ### Integration (реальные Postgres, Redis, HTTP)
 
-- **`RedisRateLimiter`:** граница лимита, ключ и TTL, смена окна (`freezegun`), независимость пользователей, **30 параллельных `hit` при лимите 10 → ровно 10 разрешённых**, Redis недоступен → разрешено, одно предупреждение, дальше без обращений.
+- **`RedisRateLimiter`:** граница лимита, ключ и TTL, смена окна (часы подставляются через `clock` лимитера), независимость пользователей, **30 параллельных `hit` при лимите 10 → ровно 10 разрешённых**, Redis недоступен → разрешено, одно предупреждение, дальше без обращений.
+- **Лок бана и разбана (решение 44):** другая сессия держит `FOR KEY SHARE` на строке пользователя (его берёт, например, вставка жалобы по внешнему ключу); бан и разбан ждут, пока она не завершится. `FOR KEY SHARE` выбран потому, что он блокирует `FOR UPDATE`, но не обычный `UPDATE`: без лока запрос завершился бы сразу и тест упал бы.
 - **Каждый ограниченный эндпоинт по HTTP:** `N`-й `200`, `N+1`-й `429` с `Retry-After`; `tag_create` — оба лимита; лимит контактов не заменяет суточный; `feed_session_build` растёт только при промахе; невалидный токен не растит счётчики; админ на пользовательских эндпоинтах ограничен; админские маршруты не создают ключей `rate:*`; **при недоступном Redis эндпоинты отвечают как раньше**.
 
 ### Проверка (запускает человек)
@@ -106,4 +113,15 @@ pytest -v --cov=app --cov-report=term-missing
 
 ## 7. Отклонения
 
-_(пусто)_
+Статус на 2026-11-11: этап реализован (шесть пачек), тесты зелёные. Отклонения от плана в ходе реализации (пункты 6–10 ниже); решения, изменённые или добавленные при утверждении плана 2026-11-11:
+
+1. Решения 36, 38, 39, 40 утверждены без изменений порядка и механизма (порядок «аутентификация → лимит → `require_username`», ключ `rate:{action}:{user_id}:{window_index}` с номером окна, счёт отклонённых запросов).
+2. К решению 36 добавлены `feed_card_daily` 300/86400 с и `profile_write` 5/600 с (пять изменений за десять минут вместо «в минуту»: вектор всё равно считается не мгновенно). Риск: автосохранение анкеты на каждый шаг мастера на фронте упрётся в лимит; значение меняется через env.
+3. В решении 41 поле тела `retry_after` называется `retry_after_seconds`.
+4. Новые решения 43 (`/auth/telegram` оставлен nginx), 44 (TODO в `BanUserUseCase` закрывается в начале этапа) и 45 (повтор контакта считается в `contact_open`).
+5. Решение 44 изменено по ходу реализации: вместо «повторить `UPDATE` и `409`» стоит `SELECT ... FOR UPDATE` на строке пользователя в бане и разбане. Пользователь спросил, не проще ли взять лок раньше; так проще (нет нового исключения, кода ответа и роутерной ветки). Первый вариант был сделан и откачен до коммита. Integration-тесты на лок построены на `FOR KEY SHARE` так, чтобы падать без лока (проверка удалением строки `lock_for_update` остаётся за человеком).
+6. **Флаг `_unavailable` убран из `RedisRateLimiter`** (решение 37 и пункт 4 раздела 3 предполагали его). Каждая зависимость `rate_limited(...)` берёт из контейнера свой лимитер и вызывает его один раз, так что флаг никогда ничего бы не пропустил. Запоминание лимитера в `Container.__init__` (общий флаг на запрос) отклонено: контейнер остаётся набором чистых фабрик, цена отказа Redis — до двух таймаутов по 0,3 с на ручке с двумя правилами.
+7. **Часы лимитера подставляются параметром `clock=time.time`**, а не `freezegun` (раздел 5): так граница окна проверяется без возни со временем event loop.
+8. **Ключ счётчика** оставлен с номером окна (`rate:{action}:{user_id}:{window_index}`), вариант без номера (окно от первого запроса, `INCR` + `EXPIRE NX` + `TTL`) обсуждался и отклонён пользователем.
+9. **Переопределение одного числа правила из env.** `pydantic-settings` не подмешивает вложенное значение из env в дефолт поля, поэтому `APP_CONFIG__RATE_LIMIT__<ACTION>__LIMIT` без `__WINDOW_SECONDS` давал бы неполное правило. `RateLimitConfig` получил `before`-валидатор, который достраивает недостающее число из дефолта (тест `test_rate_limit_override_from_the_environment_keeps_the_other_default`).
+10. **Интеграционные тесты и лимиты.** Существующие тесты ручек делают больше запросов, чем разрешают лимиты (шесть тегов подряд, `POST` и пять параллельных `PUT`), поэтому в `tests/integration/conftest.py` добавлена autouse-фикстура `_generous_rate_limits` (все лимиты 1 000 000); тест лимита понижает нужный через `monkeypatch.setattr(settings.rate_limit, ...)`.

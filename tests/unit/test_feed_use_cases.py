@@ -4,6 +4,7 @@ import pytest
 
 from app.application.services.feed_filter_validator import FeedFilterValidator
 from app.application.services.feed_viewer_resolver import FeedViewerResolver
+from app.application.services.rate_limit_guard import RateLimitGuard
 from app.application.services.timezone_catalog import TimezoneCatalog
 from app.application.use_cases import GetFeedCardUseCase, GetFeedUseCase, RecordProfileViewUseCase
 from app.core.config import FeedConfig
@@ -16,18 +17,29 @@ from app.domain.entities import (
     RoleEntity,
     TagEntity,
 )
-from app.domain.enums import EmbeddingStatus, FeedEndReason, FeedMode, FeedReasonCode, FeedTier, ProfileStatus, TagStatus
+from app.domain.enums import (
+    EmbeddingStatus,
+    FeedEndReason,
+    FeedMode,
+    FeedReasonCode,
+    FeedTier,
+    ProfileStatus,
+    RateLimitAction,
+    TagStatus,
+)
 from app.domain.exceptions import (
     FeedProfileNotFoundError,
     InvalidFeedCursorError,
     InvalidFeedFilterError,
     NoActiveProfileError,
+    RateLimitExceededError,
 )
 from app.domain.services import FeedRanker, build_feed_params_hash
 from tests.fixtures.factories import make_feed_candidate, make_feed_card, make_profile_entity, make_user_entity
 from tests.fixtures.fake_feed import FakeFeedRepository, FakeFeedSessionRepository, FakeProfileViewRepository
 from tests.fixtures.fake_profile_embedding_repository import FakeProfileEmbeddingRepository
 from tests.fixtures.fake_profile_repository import FakeProfileRepository
+from tests.fixtures.fake_rate_limiter import FakeRateLimiter
 from tests.fixtures.fake_taxonomy import FakeTaxonomyRepository
 from tests.fixtures.fake_unit_of_work import FakeUnitOfWork
 from tests.unit.test_feed_scorer import make_scorer
@@ -83,6 +95,7 @@ class Env:
             cards=[make_feed_card(c.profile_id) for c in every],
         )
         self.sessions = FakeFeedSessionRepository()
+        self.limiter = FakeRateLimiter()
         self.views = FakeProfileViewRepository()
         self.uow = FakeUnitOfWork()
 
@@ -93,6 +106,7 @@ class Env:
             filter_validator=FeedFilterValidator(self.taxonomy, catalog, []),
             feed_repository=self.feed,
             session_repository=self.sessions,
+            rate_limit_guard=RateLimitGuard(self.limiter),
             ranker=FeedRanker(make_scorer(FeedConfig()), session_cap),
             timezone_catalog=catalog,
             current_embedding_model=MODEL,
@@ -170,6 +184,57 @@ async def test_a_hit_does_not_touch_the_candidate_queries():
     assert ids(first) == ids(second)
     assert env.feed.calls.count("discovery") == 1
     assert len(env.sessions.sets) == 1
+
+
+async def test_a_miss_is_counted_once_against_the_session_build_limit_of_the_user():
+    env = Env(discovery=ranked_candidates(3))
+
+    await env.discovery()
+
+    assert env.limiter.hits == [(RateLimitAction.FEED_SESSION_BUILD, 1)]
+
+
+async def test_a_hit_and_the_following_pages_are_not_counted():
+    env = Env(discovery=ranked_candidates(5))
+    first = await env.discovery(limit=2)
+    env.limiter.hits.clear()
+
+    await env.discovery(cursor=first.next_cursor, limit=2)
+    await env.discovery()
+
+    assert env.limiter.hits == []
+
+
+async def test_an_expired_session_named_by_a_cursor_is_counted_again():
+    env = Env(discovery=ranked_candidates(5))
+    first = await env.discovery(limit=2)
+    env.sessions.expire()
+    env.limiter.hits.clear()
+
+    await env.discovery(cursor=first.next_cursor, limit=2)
+
+    assert env.limiter.hits == [(RateLimitAction.FEED_SESSION_BUILD, 1)]
+
+
+async def test_a_refused_build_runs_no_candidate_query_and_stores_no_session():
+    env = Env(discovery=ranked_candidates(3))
+    env.limiter.denied = {RateLimitAction.FEED_SESSION_BUILD}
+
+    with pytest.raises(RateLimitExceededError):
+        await env.discovery()
+
+    assert env.feed.calls == []
+    assert env.sessions.sets == []
+
+
+async def test_a_refused_build_does_not_stop_a_live_session():
+    env = Env(discovery=ranked_candidates(3))
+    await env.discovery()
+    env.limiter.denied = {RateLimitAction.FEED_SESSION_BUILD}
+
+    page = await env.discovery()
+
+    assert ids(page) == [101, 102, 103]
 
 
 async def test_the_feed_works_while_the_session_store_is_down():

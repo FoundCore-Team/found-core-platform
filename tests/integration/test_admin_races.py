@@ -113,6 +113,45 @@ class BrokenJournal(SqlAlchemyAdminActionRepository):
         raise RuntimeError("the journal is down")
 
 
+async def test_a_ban_waits_for_a_transaction_that_holds_a_key_share_lock_on_the_user(session, container):
+    # `FOR KEY SHARE` (what a foreign-key insert such as a new report takes) does not block the plain UPDATE of
+    # `is_banned`, but it does block `FOR UPDATE`: if the ban did not take that lock first, it would finish at once.
+    admin, _ = await create_user_with_headers(session, 946010)
+    await set_user_admin(session, admin.id)
+    admin = await container.user_repo().get_by_id(admin.id)
+    target, _ = await create_user_with_headers(session, 946011)
+
+    async with db_helper.session_factory() as holder:
+        await holder.execute(text("SELECT id FROM users WHERE id = :id FOR KEY SHARE"), {"id": target.id})
+        ban_task = asyncio.create_task(container.ban_user_use_case().execute(admin, target.id, "spam"))
+        await asyncio.sleep(0.3)
+        assert not ban_task.done()
+
+        await holder.commit()
+        banned = await asyncio.wait_for(ban_task, timeout=5)
+
+    assert banned.is_banned is True
+
+
+async def test_an_unban_waits_for_a_transaction_that_holds_a_key_share_lock_on_the_user(session, container):
+    admin, _ = await create_user_with_headers(session, 946012)
+    await set_user_admin(session, admin.id)
+    admin = await container.user_repo().get_by_id(admin.id)
+    target, _ = await create_user_with_headers(session, 946013)
+    await set_user_banned(session, target.id, "spam")
+
+    async with db_helper.session_factory() as holder:
+        await holder.execute(text("SELECT id FROM users WHERE id = :id FOR KEY SHARE"), {"id": target.id})
+        unban_task = asyncio.create_task(container.unban_user_use_case().execute(admin, target.id, "appeal accepted"))
+        await asyncio.sleep(0.3)
+        assert not unban_task.done()
+
+        await holder.commit()
+        unbanned = await asyncio.wait_for(unban_task, timeout=5)
+
+    assert unbanned.is_banned is False
+
+
 async def test_a_journal_failure_leaves_no_ban_no_token_bump_and_no_row_committed(session, container):
     admin, _ = await create_user_with_headers(session, 946001)
     await set_user_admin(session, admin.id)

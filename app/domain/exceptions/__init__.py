@@ -39,6 +39,7 @@ __all__ = [
     "UserNotFoundError",
     "CannotBanAdminError",
     "ReportProfileNotFoundError",
+    "RateLimitExceededError",
 ]
 
 from app.domain.exceptions.auth import (
@@ -76,6 +77,7 @@ from app.domain.exceptions.profile import (
     TooFewTagsError,
     TooManyTagsError,
 )
+from app.domain.exceptions.rate_limit import RateLimitExceededError
 from app.domain.exceptions.report import ReportProfileNotFoundError
 from app.domain.exceptions.taxonomy import (
     CategoryNotFoundError,

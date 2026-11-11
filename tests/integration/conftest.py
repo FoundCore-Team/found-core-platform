@@ -16,11 +16,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.composition.container import Container
 from app.core.composition.di import get_container
-from app.core.config import settings
+from app.core.config import RateLimitRule, settings
+from app.domain.enums import RateLimitAction
 from app.infrastructure.helpers import db_helper
 from app.infrastructure.models import Base
 from app.main import main_app
 from tests.fixtures.taxonomy_data import TaxonomyIds, seed_basic_taxonomy
+
+
+@pytest.fixture(autouse=True)
+def _generous_rate_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The endpoint tests make many requests in a row (six tags, a profile and five parallel PUTs), which the real
+    limits refuse. Every limit is lifted out of reach here; a test of rate limiting sets the one it checks again with
+    `monkeypatch.setattr(settings.rate_limit, "<action>", RateLimitRule(...))`."""
+    for action in RateLimitAction:
+        window_seconds = getattr(settings.rate_limit, action.value).window_seconds
+        monkeypatch.setattr(
+            settings.rate_limit, action.value, RateLimitRule(limit=1_000_000, window_seconds=window_seconds)
+        )
 
 
 def _parse_db_url(url: str) -> dict:

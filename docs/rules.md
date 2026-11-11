@@ -74,6 +74,7 @@ Do not introduce another DI or composition pattern.
 * A change that must hold against concurrent writers is a conditional `UPDATE ... WHERE <old state> RETURNING` (not a `SELECT`, a check and an unconditional write); an empty result means "someone else got there first" and the use case re-reads and answers for the current state.
 * Row locks are taken in one fixed order, ascending id within a table: **tags → profiles → `profile_embeddings`**. Code that reads tags in order to save something that refers to them (the profile validator) takes `FOR KEY SHARE` and holds it until its commit; code that changes a tag's meaning (moderation) takes `FOR UPDATE`; a counter update on tags takes `FOR NO KEY UPDATE`, never `FOR UPDATE` (it would deadlock with the `KEY SHARE` holders). Rows read after waiting for a lock are loaded with `populate_existing`, otherwise the session returns the stale object.
 * A lock or a race fix comes with a test that fires the requests in parallel and **fails when the lock is removed** (check by temporarily removing it); a race test that passes either way proves nothing.
+* Scenarios of one person that must not interleave (counting and spending a limit, a ban and an unban) take `IUserRepository.lock_for_update` on the user row before they read, and the use case re-reads after it. Its test holds a lock that conflicts with `FOR UPDATE` but not with a plain `UPDATE` (`FOR KEY SHARE`) from a second session and expects the call to wait: with a plain `UPDATE` in the way the call would block anyway and prove nothing.
 * Every list query that is returned to a client orders by a unique tie-breaker as its last key (`ORDER BY sort_order, id`), otherwise equal rows may come back in a different order on each call.
 
 ### Migrations
@@ -118,6 +119,15 @@ Do not introduce another DI or composition pattern.
 * Check the shape of anything parsed from an external source before using it: the container type (a JSON object, not a list), exact types (`type(x) is int` — `bool` is an `int` subclass), string lengths matching the DB column, no NUL characters in text bound for Postgres, and `isascii()` together with `isdigit()` before `int()` on a string (`"²"` and Arabic digits pass `isdigit()` alone).
 * A valid signature does not make a payload well-formed: a signed JWT must still declare its required claims (`options={"require": [...]}`, otherwise a token without `exp` never expires) and have them type-checked.
 * Compare secrets and signatures with `hmac.compare_digest` on `bytes`; on `str` it raises `TypeError` for non-ASCII input, which would surface as a `500`.
+
+### Rate limiting
+
+* An endpoint that writes, costs money (an embedding job) or can be scraped gets a per-user limit through `rate_limited(action)` (`api/v1/dependencies/rate_limit.py`), never through middleware and never inside the handler. One rule is one dependency; a route with two rules lists two.
+* Declare it in the decorator's `dependencies=[...]`: those run before the parameters, which keeps the order token → limit → `require_username` → validation. Do not move it into a parameter.
+* A new limited action is a member of `RateLimitAction` and a field of `RateLimitConfig` with the same name; both numbers come from config (no hardcoded limits). The test that compares the fields with the enum fails if one is forgotten.
+* The limiter decides and never raises: `IRateLimiter.hit` returns a `RateLimitDecision`, `RateLimitGuard` raises `RateLimitExceededError`, a router maps it with `too_many_requests`. A Redis failure allows the request (fail-open).
+* A limit that depends on what the use case finds (counting only a cache miss) is checked in the use case through `RateLimitGuard`, not in a dependency.
+* Its test lowers only that limit with `monkeypatch.setattr(settings.rate_limit, ...)` (the autouse fixture in `tests/integration/conftest.py` lifts all of them for the other tests) and checks that request N passes, request N+1 is `429` with `Retry-After`, and another user or action is not affected.
 
 ### Mappers
 

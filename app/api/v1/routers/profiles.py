@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from app.api.v1.dependencies.auth import get_current_user
+from app.api.v1.dependencies.rate_limit import rate_limited
 from app.api.v1.mappers.profile import (
     map_profile_entity_to_profile_schema,
     map_profile_form_config_to_profile_form_config_schema,
@@ -16,6 +17,7 @@ from app.core.composition.container import Container
 from app.core.composition.di import get_container
 from app.domain.constants import MAX_INT64
 from app.domain.entities import UserEntity
+from app.domain.enums import RateLimitAction
 from app.domain.exceptions import (
     CategoryNotFoundError,
     InvalidCountryError,
@@ -68,7 +70,11 @@ async def get_my_profiles(
     return [map_profile_entity_to_profile_schema(p, current_user.active_profile_id) for p in profiles]
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limited(RateLimitAction.PROFILE_WRITE))],
+)
 async def create_profile(
     payload: ProfileCreateRequest,
     container: Container = Depends(get_container),
@@ -110,7 +116,7 @@ async def get_profile(
     return map_profile_entity_to_profile_schema(profile, current_user.active_profile_id)
 
 
-@router.put("/{profile_id}")
+@router.put("/{profile_id}", dependencies=[Depends(rate_limited(RateLimitAction.PROFILE_WRITE))])
 async def update_profile(
     payload: ProfileUpdateRequest,
     profile_id: int = Path(..., ge=1, le=MAX_INT64),
