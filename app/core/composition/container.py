@@ -7,6 +7,7 @@ from app.application.services.feed_filter_validator import FeedFilterValidator
 from app.application.services.feed_viewer_resolver import FeedViewerResolver
 from app.application.services.jwt_service import JWTService
 from app.application.services.profile_content_validator import ProfileContentValidator
+from app.application.services.rate_limit_guard import RateLimitGuard
 from app.application.services.telegram_init_data import TelegramInitDataValidator
 from app.application.services.timezone_catalog import TimezoneCatalog
 from app.application.use_cases import (
@@ -50,6 +51,7 @@ from app.application.use_cases import (
     VerifyAccessTokenUseCase,
 )
 from app.core.config import settings
+from app.domain.enums import RateLimitAction
 from app.domain.interfaces import IEmbeddingProvider, INotificationSender
 from app.domain.services import (
     ExtraAttributesValidator,
@@ -67,6 +69,7 @@ from app.infrastructure.providers import (
 from app.infrastructure.queues import CeleryEmbeddingJobQueue, CeleryNotificationJobQueue
 from app.infrastructure.repositories import (
     RedisFeedSessionRepository,
+    RedisRateLimiter,
     RedisTaxonomyCacheRepository,
     SqlAlchemyAdminActionRepository,
     SqlAlchemyContactOpenRepository,
@@ -113,6 +116,9 @@ class Container:
             extra_attributes_validator=self.extra_attributes_validator(),
         )
 
+    def rate_limit_guard(self) -> RateLimitGuard:
+        return RateLimitGuard(self.rate_limiter())
+
     # ---------- unit of work ----------
 
     def unit_of_work(self) -> SqlAlchemyUnitOfWork:
@@ -158,6 +164,13 @@ class Container:
             redis_client=self.redis_client,
             ttl_seconds=settings.feed.session_ttl_seconds,
         )
+
+    def rate_limiter(self) -> RedisRateLimiter:
+        rules = {}
+        for action in RateLimitAction:
+            rule = getattr(settings.rate_limit, action.value)
+            rules[action] = (rule.limit, rule.window_seconds)
+        return RedisRateLimiter(redis_client=self.redis_client, rules=rules)
 
     # ---------- embeddings ----------
 
