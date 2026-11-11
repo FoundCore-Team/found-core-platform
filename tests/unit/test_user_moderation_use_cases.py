@@ -307,6 +307,24 @@ async def test_a_parallel_deletion_makes_the_user_not_found():
     assert unit_of_work.commits == 0
 
 
+async def test_a_ban_takes_the_user_row_lock_before_it_reads_the_user():
+    use_case, users, _, _ = build(BanUserUseCase, [ADMIN, make_user_entity(id=1, telegram_id=555)])
+
+    await use_case.execute(ADMIN, 1, "spam")
+
+    assert users.locked_user_ids == [1]
+
+
+async def test_an_unban_takes_the_user_row_lock_before_it_reads_the_user():
+    use_case, users, _, _ = build(
+        UnbanUserUseCase, [ADMIN, make_user_entity(id=1, telegram_id=555, is_banned=True, ban_reason="spam")]
+    )
+
+    await use_case.execute(ADMIN, 1, "appeal accepted")
+
+    assert users.locked_user_ids == [1]
+
+
 async def test_a_journal_failure_leaves_the_ban_uncommitted():
     use_case, _, journal, unit_of_work = build(BanUserUseCase, [ADMIN, make_user_entity(id=1, telegram_id=555)])
     journal.fail_on_add = RuntimeError("journal down")

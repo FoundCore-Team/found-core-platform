@@ -75,6 +75,8 @@ class BanUserUseCase:
         self._unit_of_work = unit_of_work
 
     async def execute(self, admin: UserEntity, user_id: int, reason: str) -> UserEntity:
+        # Bans and unbans of one user run one after another: the state read below cannot change until our commit.
+        await self._user_repository.lock_for_update(user_id)
         user = await self._user_repository.get_by_id(user_id)
         if user is None or user.deleted_at is not None:
             raise UserNotFoundError()
@@ -94,9 +96,7 @@ class BanUserUseCase:
                 raise CannotBanAdminError()
             if current.is_banned:
                 return current
-            # Only if other requests banned the user and lifted the ban again between our two reads: this request
-            # changed nothing and "not found" is not really true. TODO: decide what to answer here (retry the write
-            # once, or a 409); it takes two more admins acting on the same user at the same instant.
+            # Cannot happen while the row lock is held; kept so a broken lock fails loudly instead of silently.
             raise UserNotFoundError()
 
         now = datetime.now(timezone.utc)
@@ -130,6 +130,8 @@ class UnbanUserUseCase:
         self._unit_of_work = unit_of_work
 
     async def execute(self, admin: UserEntity, user_id: int, reason: str) -> UserEntity:
+        # Same lock as the ban: the two never interleave on one user.
+        await self._user_repository.lock_for_update(user_id)
         user = await self._user_repository.get_by_id(user_id)
         if user is None or user.deleted_at is not None:
             raise UserNotFoundError()
