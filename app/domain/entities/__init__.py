@@ -20,6 +20,7 @@ __all__ = [
     "TimezoneEntity",
     "CountryEntity",
     "ProfileEmbeddingEntity",
+    "RateLimitDecision",
     "FeedFilters",
     "FeedViewer",
     "FeedCandidate",
@@ -77,6 +78,7 @@ from app.domain.entities.profile import (
     TimezoneEntity,
 )
 from app.domain.entities.profile_embedding import ProfileEmbeddingEntity
+from app.domain.entities.rate_limit import RateLimitDecision
 from app.domain.entities.report import NewReportEntity, ReportEntity, ReportGroupEntity
 from app.domain.entities.taxonomy import (
     CategoryEntity,
