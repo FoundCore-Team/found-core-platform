@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, st
 from pydantic import Field
 
 from app.api.v1.dependencies.auth import require_username
-from app.api.v1.dependencies.rate_limit import rate_limited
+from app.api.v1.dependencies.rate_limit import rate_limited, too_many_requests
 from app.api.v1.mappers.feed import (
     decode_feed_cursor,
     map_feed_page_item_to_feed_item_schema,
@@ -24,6 +24,7 @@ from app.domain.exceptions import (
     InvalidFeedCursorError,
     InvalidFeedFilterError,
     NoActiveProfileError,
+    RateLimitExceededError,
 )
 
 router = APIRouter(prefix="/feed", tags=["Feed"])
@@ -78,6 +79,9 @@ async def get_feed(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "invalid_cursor", "message": str(exc)},
         ) from exc
+    except RateLimitExceededError as exc:
+        # Raised when the feed session has to be built; the per-request limit is the route dependency.
+        raise too_many_requests(exc) from exc
     return map_feed_page_to_feed_page_schema(page)
 
 

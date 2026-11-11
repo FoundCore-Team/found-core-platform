@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from app.application.services.feed_filter_validator import FeedFilterValidator
 from app.application.services.feed_viewer_resolver import FeedViewerResolver
+from app.application.services.rate_limit_guard import RateLimitGuard
 from app.application.services.timezone_catalog import TimezoneCatalog
 from app.domain.constants import FEED_ALGORITHM_VERSION
 from app.domain.entities import (
@@ -14,7 +15,7 @@ from app.domain.entities import (
     FeedViewer,
     UserEntity,
 )
-from app.domain.enums import FeedEndReason, FeedMode
+from app.domain.enums import FeedEndReason, FeedMode, RateLimitAction
 from app.domain.exceptions import FeedProfileNotFoundError, InvalidFeedCursorError, InvalidFeedFilterError
 from app.domain.interfaces import IFeedRepository, IFeedSessionRepository, IProfileViewRepository, IUnitOfWork
 from app.domain.services import FeedRanker, FeedScorer, build_feed_params_hash, build_feed_session_key
@@ -29,6 +30,7 @@ class GetFeedUseCase:
         filter_validator: FeedFilterValidator,
         feed_repository: IFeedRepository,
         session_repository: IFeedSessionRepository,
+        rate_limit_guard: RateLimitGuard,
         ranker: FeedRanker,
         timezone_catalog: TimezoneCatalog,
         current_embedding_model: str,
@@ -39,6 +41,7 @@ class GetFeedUseCase:
         self._filter_validator = filter_validator
         self._feed_repository = feed_repository
         self._session_repository = session_repository
+        self._rate_limit_guard = rate_limit_guard
         self._ranker = ranker
         self._timezone_catalog = timezone_catalog
         self._current_embedding_model = current_embedding_model
@@ -133,6 +136,9 @@ class GetFeedUseCase:
         if session is None:
             session = await self._find_session(current_key, viewer, params_hash)
         if session is None:
+            # Only a miss is counted: building is the expensive part, and turning the pages of a live session is not.
+            # It also covers an expired session named by a cursor, which is rebuilt here.
+            await self._rate_limit_guard.check(RateLimitAction.FEED_SESSION_BUILD, user.id)
             session = await self._build_session(viewer, mode, filters, params_hash, datetime.now(timezone.utc))
             await self._session_repository.set(current_key, session)
 

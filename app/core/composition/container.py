@@ -492,6 +492,7 @@ class Container:
             filter_validator=self.feed_filter_validator(),
             feed_repository=self.feed_repo(),
             session_repository=self.feed_session_repo(),
+            rate_limit_guard=self.rate_limit_guard(),
             ranker=self.feed_ranker(),
             timezone_catalog=self.timezone_catalog(),
             current_embedding_model=self.current_embedding_model(),
