@@ -3,18 +3,20 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
 
 from app.api.v1.dependencies.auth import require_username
+from app.api.v1.dependencies.rate_limit import rate_limited
 from app.api.v1.mappers.contact import map_opened_contact_to_opened_contact_schema
 from app.api.v1.schemas.contact import OpenedContactSchema
 from app.core.composition.container import Container
 from app.core.composition.di import get_container
 from app.domain.constants import MAX_INT64
 from app.domain.entities import UserEntity
+from app.domain.enums import RateLimitAction
 from app.domain.exceptions import ContactLimitReachedError, ContactProfileNotFoundError, NoActiveProfileError
 
 router = APIRouter(prefix="/profiles", tags=["Contacts"])
 
 
-@router.post("/{profile_id}/contact")
+@router.post("/{profile_id}/contact", dependencies=[Depends(rate_limited(RateLimitAction.CONTACT_OPEN))])
 async def open_contact(
     profile_id: Annotated[int, Path(ge=1, le=MAX_INT64)],
     response: Response,

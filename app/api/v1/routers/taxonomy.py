@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from app.api.v1.dependencies.auth import get_current_user
+from app.api.v1.dependencies.rate_limit import rate_limited
 from app.api.v1.mappers.taxonomy import (
     map_category_entity_to_category_schema,
     map_role_entity_to_role_schema,
@@ -18,6 +19,7 @@ from app.core.composition.container import Container
 from app.core.composition.di import get_container
 from app.domain.constants import MAX_INT64
 from app.domain.entities import UserEntity
+from app.domain.enums import RateLimitAction
 from app.domain.exceptions import (
     CategoryNotFoundError,
     RoleNotFoundError,
@@ -63,7 +65,7 @@ async def get_role_fields(
     return [map_role_field_entity_to_role_field_schema(f) for f in fields]
 
 
-@router.get("/tags/suggest")
+@router.get("/tags/suggest", dependencies=[Depends(rate_limited(RateLimitAction.TAG_SUGGEST))])
 async def suggest_tags(
     q: str = Query(..., min_length=1, max_length=128),
     category_id: int = Query(..., ge=1, le=MAX_INT64),
@@ -78,7 +80,13 @@ async def suggest_tags(
     return [map_tag_entity_to_tag_schema(t) for t in tags]
 
 
-@router.post("/tags/custom")
+@router.post(
+    "/tags/custom",
+    dependencies=[
+        Depends(rate_limited(RateLimitAction.TAG_CREATE)),
+        Depends(rate_limited(RateLimitAction.TAG_CREATE_DAILY)),
+    ],
+)
 async def create_custom_tag(
     payload: CreateCustomTagRequest,
     container: Container = Depends(get_container),

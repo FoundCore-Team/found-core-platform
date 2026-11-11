@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, st
 from pydantic import Field
 
 from app.api.v1.dependencies.auth import require_username
+from app.api.v1.dependencies.rate_limit import rate_limited
 from app.api.v1.mappers.feed import (
     decode_feed_cursor,
     map_feed_page_item_to_feed_item_schema,
@@ -17,7 +18,7 @@ from app.core.composition.di import get_container
 from app.core.config import settings
 from app.domain.constants import MAX_INT64
 from app.domain.entities import UserEntity
-from app.domain.enums import FeedMode
+from app.domain.enums import FeedMode, RateLimitAction
 from app.domain.exceptions import (
     FeedProfileNotFoundError,
     InvalidFeedCursorError,
@@ -40,7 +41,7 @@ def _no_active_profile(exc: NoActiveProfileError) -> HTTPException:
     )
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(rate_limited(RateLimitAction.FEED_REQUEST))])
 async def get_feed(
     mode: FeedMode,
     role_id: Annotated[int | None, Query(ge=1, le=MAX_INT64)] = None,
@@ -80,7 +81,13 @@ async def get_feed(
     return map_feed_page_to_feed_page_schema(page)
 
 
-@router.get("/cards/{profile_id}")
+@router.get(
+    "/cards/{profile_id}",
+    dependencies=[
+        Depends(rate_limited(RateLimitAction.FEED_CARD)),
+        Depends(rate_limited(RateLimitAction.FEED_CARD_DAILY)),
+    ],
+)
 async def get_feed_card(
     profile_id: Annotated[int, Path(ge=1, le=MAX_INT64)],
     container: Container = Depends(get_container),
@@ -95,7 +102,11 @@ async def get_feed_card(
     return map_feed_page_item_to_feed_item_schema(item)
 
 
-@router.post("/views", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/views",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limited(RateLimitAction.FEED_VIEW))],
+)
 async def record_profile_view(
     payload: FeedViewRequest,
     container: Container = Depends(get_container),

@@ -1,17 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.api.v1.dependencies.auth import get_current_user
+from app.api.v1.dependencies.rate_limit import rate_limited
 from app.api.v1.mappers.report import map_report_entity_to_report_schema
 from app.api.v1.schemas.report import ReportCreateRequest, ReportSchema
 from app.core.composition.container import Container
 from app.core.composition.di import get_container
 from app.domain.entities import UserEntity
+from app.domain.enums import RateLimitAction
 from app.domain.exceptions import ReportProfileNotFoundError
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(rate_limited(RateLimitAction.REPORT_CREATE))])
 async def create_report(
     body: ReportCreateRequest,
     response: Response,
