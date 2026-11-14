@@ -15,9 +15,11 @@ from app.domain.entities import (
     FeedSession,
     ProfileEmbeddingEntity,
     RoleEntity,
+    RoleFieldEntity,
     TagEntity,
 )
 from app.domain.enums import (
+    AnalyticsEvent,
     EmbeddingStatus,
     FeedEndReason,
     FeedMode,
@@ -25,6 +27,7 @@ from app.domain.enums import (
     FeedTier,
     ProfileStatus,
     RateLimitAction,
+    RoleFieldType,
     TagStatus,
 )
 from app.domain.exceptions import (
@@ -36,6 +39,7 @@ from app.domain.exceptions import (
 )
 from app.domain.services import FeedRanker, build_feed_params_hash
 from tests.fixtures.factories import make_feed_candidate, make_feed_card, make_profile_entity, make_user_entity
+from tests.fixtures.fake_analytics import FakeAnalyticsTracker
 from tests.fixtures.fake_feed import FakeFeedRepository, FakeFeedSessionRepository, FakeProfileViewRepository
 from tests.fixtures.fake_profile_embedding_repository import FakeProfileEmbeddingRepository
 from tests.fixtures.fake_profile_repository import FakeProfileRepository
@@ -49,6 +53,19 @@ STAMP = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 NO_FILTERS = FeedFilters(role_id=None, attributes={}, tag_ids=[], country_code=None, same_timezone=False)
 ROLE_AND_TAG = FeedFilters(role_id=5, attributes={}, tag_ids=[42], country_code=None, same_timezone=False)
 DISCOVERY_HASH = build_feed_params_hash(1, FeedMode.DISCOVERY, NO_FILTERS)
+
+
+def _select_field(field_id: int, key: str, option: str) -> RoleFieldEntity:
+    return RoleFieldEntity(
+        id=field_id,
+        role_id=5,
+        key=key,
+        label=key,
+        field_type=RoleFieldType.SELECT,
+        options=[{"value": option, "label": option}],
+        is_required=False,
+        is_filterable=True,
+    )
 
 
 def ranked_candidates(count: int, start: int = 101, **overrides):
@@ -81,6 +98,7 @@ class Env:
         )
         self.taxonomy = FakeTaxonomyRepository(
             roles=[RoleEntity(id=5, category_id=1, slug="engineering", title="Engineering")],
+            role_fields=[_select_field(500, "workload", "full_time"), _select_field(501, "grade", "senior")],
             tags=[
                 TagEntity(42, "Go", "go", TagStatus.APPROVED, None),
                 TagEntity(43, "Zig", "zig", TagStatus.PENDING, 7),
@@ -98,6 +116,7 @@ class Env:
         self.limiter = FakeRateLimiter()
         self.views = FakeProfileViewRepository()
         self.uow = FakeUnitOfWork()
+        self.analytics = FakeAnalyticsTracker()
 
         resolver = FeedViewerResolver(self.profiles, self.embeddings, MODEL)
         catalog = TimezoneCatalog()
@@ -112,9 +131,15 @@ class Env:
             current_embedding_model=MODEL,
             scoring_fingerprint="fingerprint",
             bio_tier_min_cos_sim=0.35,
+            analytics_tracker=self.analytics,
         )
         self.get_card = GetFeedCardUseCase(resolver, self.feed, make_scorer(FeedConfig()), catalog, MODEL)
-        self.record_view = RecordProfileViewUseCase(resolver, self.feed, self.views, self.uow)
+        self.record_view = RecordProfileViewUseCase(
+            resolver, self.feed, self.views, self.sessions, self.uow, self.analytics
+        )
+
+    def events(self, event: AnalyticsEvent) -> list:
+        return [tracked for tracked in self.analytics.events if tracked.event is event]
 
     async def discovery(self, cursor=None, limit=20):
         return await self.get_feed.execute(self.user, FeedMode.DISCOVERY, NO_FILTERS, cursor, limit)
@@ -519,3 +544,231 @@ async def test_a_profile_that_is_not_visible_cannot_be_marked_as_viewed():
 
     assert env.views.add_calls == 0
     assert env.uow.commits == 0
+
+
+# ---------- feed events ----------
+
+NO_FILTER_FLAGS = {
+    "filters_count": 0,
+    "filter_role": False,
+    "filter_tags": False,
+    "filter_country": False,
+    "filter_timezone": False,
+    "filter_attrs": None,
+}
+
+
+async def test_the_first_page_reports_the_ranking_and_the_page():
+    env = Env(discovery=ranked_candidates(3))
+
+    await env.discovery(limit=2)
+
+    assert [event.event for event in env.analytics.events] == [
+        AnalyticsEvent.FEED_RANKED,
+        AnalyticsEvent.FEED_PAGE_SERVED,
+    ]
+    ranked, served = env.analytics.events
+    assert ranked.user_id == served.user_id == 1
+    assert ranked.properties == {
+        "actor_profile_id": 1,
+        "mode": "discovery",
+        **NO_FILTER_FLAGS,
+        "candidates_count": 3,
+        "exact_count": 0,
+        "partial_count": 0,
+        "bio_count": 0,
+    }
+    assert served.properties == {
+        "actor_profile_id": 1,
+        "mode": "discovery",
+        "offset": 0,
+        "items_count": 2,
+        "has_more": True,
+        "is_reranked": True,
+    }
+
+
+async def test_a_page_from_a_live_session_is_not_a_ranking_and_the_last_page_ends_the_feed():
+    env = Env(discovery=ranked_candidates(3))
+    first = await env.discovery(limit=2)
+    env.analytics.events.clear()
+
+    await env.discovery(cursor=first.next_cursor, limit=2)
+
+    assert [event.event for event in env.analytics.events] == [
+        AnalyticsEvent.FEED_PAGE_SERVED,
+        AnalyticsEvent.FEED_EMPTY,
+    ]
+    served, empty = env.analytics.events
+    assert (served.properties["offset"], served.properties["items_count"]) == (2, 1)
+    assert (served.properties["has_more"], served.properties["is_reranked"]) == (False, False)
+    assert empty.properties == {"actor_profile_id": 1, "mode": "discovery", "reason": "END_OF_FEED"}
+
+
+async def test_nobody_yet_is_reported_when_the_feed_is_ranked_and_not_again_from_the_live_session():
+    env = Env(discovery=[])
+
+    await env.discovery()
+    await env.discovery()
+
+    [empty] = env.events(AnalyticsEvent.FEED_EMPTY)
+    assert empty.properties["reason"] == "NO_CANDIDATES_YET"
+    assert [event.properties["is_reranked"] for event in env.events(AnalyticsEvent.FEED_PAGE_SERVED)] == [True, False]
+
+
+async def test_a_search_ranking_reports_which_criteria_were_set_and_how_the_tiers_split():
+    every_criterion = ["role", "attr:grade", "attr:workload", "tags", "country", "timezone"]
+    env = Env(
+        search=[
+            make_feed_candidate(profile_id=101, matched_filters=every_criterion),
+            make_feed_candidate(profile_id=102, matched_filters=["role"]),
+        ],
+        bio=[make_feed_candidate(profile_id=201, category_id=2, role_id=9, cos_sim=0.6)],
+    )
+    filters = FeedFilters(
+        role_id=5,
+        attributes={"workload": "full_time", "grade": "senior"},
+        tag_ids=[42],
+        country_code="DE",
+        same_timezone=True,
+    )
+
+    await env.search(filters)
+
+    [ranked] = env.events(AnalyticsEvent.FEED_RANKED)
+    assert ranked.properties == {
+        "actor_profile_id": 1,
+        "mode": "search",
+        "filters_count": 6,
+        "filter_role": True,
+        "filter_tags": True,
+        "filter_country": True,
+        "filter_timezone": True,
+        # Keys sorted, values left out.
+        "filter_attrs": "grade,workload",
+        "candidates_count": 3,
+        "exact_count": 1,
+        "partial_count": 1,
+        "bio_count": 1,
+    }
+    assert "senior" not in ranked.properties.values() and "full_time" not in ranked.properties.values()
+
+
+async def test_a_refused_or_invalid_feed_request_sends_nothing():
+    env = Env(discovery=ranked_candidates(3))
+    env.limiter.denied = {RateLimitAction.FEED_SESSION_BUILD}
+    with pytest.raises(RateLimitExceededError):
+        await env.discovery()
+
+    with pytest.raises(InvalidFeedFilterError):
+        await env.search(FeedFilters(role_id=999, attributes={}, tag_ids=[], country_code=None, same_timezone=False))
+
+    assert env.analytics.events == []
+
+
+async def test_every_page_points_the_viewer_at_the_session_it_was_cut_from():
+    env = Env(discovery=ranked_candidates(3))
+
+    first = await env.discovery(limit=2)
+    assert env.sessions.last_session_keys == {1: first.next_cursor.session_key}
+
+    env.sessions.last_session_keys.clear()
+    await env.discovery(cursor=first.next_cursor, limit=2)
+    assert env.sessions.last_session_keys == {1: first.next_cursor.session_key}
+
+
+# ---------- profile view events ----------
+
+
+async def test_a_view_from_the_feed_carries_the_tier_and_the_score_the_card_showed():
+    env = Env(discovery=ranked_candidates(3))
+    page = await env.discovery()
+    shown = next(item for item in page.items if item.card.profile.id == 102)
+
+    await env.record_view.execute(env.user, 102)
+
+    [viewed] = env.events(AnalyticsEvent.PROFILE_VIEWED)
+    assert viewed.user_id == 1
+    assert viewed.properties == {
+        "actor_profile_id": 1,
+        "target_profile_id": 102,
+        "match_type": "DISCOVERY",
+        "match_score": shown.match_score,
+        "is_first_view": True,
+    }
+
+
+async def test_every_view_is_reported_and_only_the_first_one_is_marked_first():
+    env = Env(discovery=ranked_candidates(1))
+    await env.discovery()
+
+    await env.record_view.execute(env.user, 101)
+    await env.record_view.execute(env.user, 101)
+
+    assert [event.properties["is_first_view"] for event in env.events(AnalyticsEvent.PROFILE_VIEWED)] == [True, False]
+
+
+async def test_a_view_without_a_feed_page_before_it_has_no_tier():
+    env = Env(discovery=ranked_candidates(1))
+
+    await env.record_view.execute(env.user, 101)
+
+    [viewed] = env.events(AnalyticsEvent.PROFILE_VIEWED)
+    assert (viewed.properties["match_type"], viewed.properties["match_score"]) == (None, None)
+
+
+async def test_a_view_of_a_card_that_is_not_in_the_last_feed_page_has_no_tier():
+    # Visible, but not ranked in this session: opened from a notification or by id.
+    env = Env(discovery=ranked_candidates(1), extra_candidates=[make_feed_candidate(profile_id=777)])
+    await env.discovery()
+
+    await env.record_view.execute(env.user, 777)
+
+    assert env.events(AnalyticsEvent.PROFILE_VIEWED)[0].properties["match_type"] is None
+
+
+async def test_a_pointer_to_a_session_of_another_viewer_is_not_trusted():
+    env = Env(discovery=ranked_candidates(1))
+    other = FeedSession(
+        viewer_profile_id=999,
+        params_hash="p" * 64,
+        items=[FeedRankedItem(101, FeedTier.EXACT_MATCH, 0.9, [])],
+        built_at=STAMP,
+    )
+    env.sessions.put("s" * 64, other)
+    env.sessions.last_session_keys[1] = "s" * 64
+
+    await env.record_view.execute(env.user, 101)
+
+    assert env.events(AnalyticsEvent.PROFILE_VIEWED)[0].properties["match_type"] is None
+
+
+async def test_a_view_while_redis_is_down_is_recorded_and_reported_without_a_tier():
+    env = Env(discovery=ranked_candidates(1))
+    await env.discovery()
+    env.sessions.outage = True
+
+    await env.record_view.execute(env.user, 101)
+
+    assert set(env.views.views) == {(1, 101)}
+    [viewed] = env.events(AnalyticsEvent.PROFILE_VIEWED)
+    assert (viewed.properties["match_type"], viewed.properties["is_first_view"]) == (None, True)
+
+
+async def test_a_view_whose_commit_fails_sends_nothing():
+    env = Env(discovery=ranked_candidates(1))
+    env.uow.fail_on_commit = True
+
+    with pytest.raises(RuntimeError):
+        await env.record_view.execute(env.user, 101)
+
+    assert env.events(AnalyticsEvent.PROFILE_VIEWED) == []
+
+
+async def test_a_view_of_an_invisible_profile_sends_nothing():
+    env = Env(discovery=ranked_candidates(1))
+
+    with pytest.raises(FeedProfileNotFoundError):
+        await env.record_view.execute(env.user, 999)
+
+    assert env.events(AnalyticsEvent.PROFILE_VIEWED) == []

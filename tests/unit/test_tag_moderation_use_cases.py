@@ -21,6 +21,7 @@ from app.domain.exceptions import (
 from app.domain.services import ExtraAttributesValidator, ProfileFormValidator, TagTitleValidator, normalize_tag_title
 from tests.fixtures.factories import make_profile_entity, make_user_entity
 from tests.fixtures.fake_admin_action_repository import FakeAdminActionRepository
+from tests.fixtures.fake_analytics import FakeAnalyticsTracker
 from tests.fixtures.fake_profile_embedding_repository import FakeProfileEmbeddingRepository
 from tests.fixtures.fake_profile_repository import FakeProfileRepository
 from tests.fixtures.fake_taxonomy import FakeTaxonomyRepository
@@ -364,7 +365,7 @@ class TestCustomTagFollowsAnAlias:
             max_length=config.tag_title_max_length,
             pattern=config.tag_title_allowed_pattern,
         )
-        return CreateCustomTagUseCase(taxonomy, validator, uow)
+        return CreateCustomTagUseCase(taxonomy, validator, uow, FakeAnalyticsTracker())
 
     async def test_an_alias_title_returns_the_target_and_adds_the_scope_to_it(self):
         env = Env([_tag(1, "NodeJS", TagStatus.MERGED, merged_into=2), _tag(2, "Node.js")])

@@ -12,7 +12,7 @@ from sqlalchemy import text
 
 from app.core.composition.container import Container
 from app.core.composition.di import get_container
-from app.domain.enums import ProfileStatus, TagStatus
+from app.domain.enums import AnalyticsEvent, ProfileStatus, TagStatus
 from app.infrastructure.helpers import db_helper
 from app.infrastructure.providers import NoopAnalyticsTracker
 from app.main import main_app
@@ -360,6 +360,30 @@ async def test_a_view_belongs_to_the_active_profile_at_the_time(session, taxonom
 
     row = (await session.execute(text("SELECT viewer_profile_id, viewed_profile_id FROM profile_views"))).one()
     assert (row.viewer_profile_id, row.viewed_profile_id) == (viewer.profile_id, candidate)
+
+
+async def test_a_view_after_a_feed_page_reports_the_tier_and_the_score_the_card_showed(
+    session, taxonomy_client, analytics_tracker, taxonomy_data, viewer
+):
+    created = await make_five_candidates(session, taxonomy_data)
+    page = (await fetch(taxonomy_client, viewer, mode="discovery")).json()
+    shown = next(item for item in page["items"] if item["profile"]["id"] == created[1])
+
+    first = await taxonomy_client.post(f"{BASE}/views", json={"profile_id": created[1]}, headers=viewer.headers)
+    repeat = await taxonomy_client.post(f"{BASE}/views", json={"profile_id": created[1]}, headers=viewer.headers)
+
+    assert (first.status_code, repeat.status_code) == (204, 204)
+    views = [event for event in analytics_tracker.events if event.event is AnalyticsEvent.PROFILE_VIEWED]
+    assert [event.user_id for event in views] == [viewer.user_id, viewer.user_id]
+    # The pointer and the session both came from the real Redis written by the GET above.
+    assert views[0].properties == {
+        "actor_profile_id": viewer.profile_id,
+        "target_profile_id": created[1],
+        "match_type": shown["match_type"],
+        "match_score": shown["match_score"],
+        "is_first_view": True,
+    }
+    assert views[1].properties["is_first_view"] is False
 
 
 async def test_profiles_that_are_not_visible_cannot_be_viewed_or_opened(session, taxonomy_client, taxonomy_data, viewer):

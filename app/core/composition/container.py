@@ -303,6 +303,7 @@ class Container:
             jwt_service=self.jwt_service(),
             unit_of_work=self.unit_of_work(),
             profile_repository=self.profile_repo(),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def verify_access_token_use_case(self) -> VerifyAccessTokenUseCase:
@@ -353,7 +354,11 @@ class Container:
         )
 
     def create_report_use_case(self) -> CreateReportUseCase:
-        return CreateReportUseCase(report_repository=self.report_repo(), unit_of_work=self.unit_of_work())
+        return CreateReportUseCase(
+            report_repository=self.report_repo(),
+            unit_of_work=self.unit_of_work(),
+            analytics_tracker=self.analytics_tracker,
+        )
 
     def list_report_groups_use_case(self) -> ListReportGroupsUseCase:
         return ListReportGroupsUseCase(report_repository=self.report_repo())
@@ -399,6 +404,7 @@ class Container:
             taxonomy_repository=self.taxonomy_repo(),
             tag_title_validator=self.tag_title_validator(),
             unit_of_work=self.unit_of_work(),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def list_pending_tags_use_case(self) -> ListPendingTagsUseCase:
@@ -450,6 +456,7 @@ class Container:
             profile_embedding_repository=self.profile_embedding_repo(),
             embedding_queue=self.embedding_queue(),
             unit_of_work=self.unit_of_work(),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def update_profile_use_case(self) -> UpdateProfileUseCase:
@@ -459,6 +466,7 @@ class Container:
             profile_embedding_repository=self.profile_embedding_repo(),
             embedding_queue=self.embedding_queue(),
             unit_of_work=self.unit_of_work(),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def activate_profile_use_case(self) -> ActivateProfileUseCase:
@@ -466,6 +474,7 @@ class Container:
             profile_repository=self.profile_repo(),
             user_repository=self.user_repo(),
             unit_of_work=self.unit_of_work(),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def pause_profile_use_case(self) -> PauseProfileUseCase:
@@ -473,6 +482,7 @@ class Container:
             profile_repository=self.profile_repo(),
             user_repository=self.user_repo(),
             unit_of_work=self.unit_of_work(),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def resume_profile_use_case(self) -> ResumeProfileUseCase:
@@ -480,6 +490,7 @@ class Container:
             profile_repository=self.profile_repo(),
             user_repository=self.user_repo(),
             unit_of_work=self.unit_of_work(),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def delete_profile_use_case(self) -> DeleteProfileUseCase:
@@ -487,6 +498,7 @@ class Container:
             profile_repository=self.profile_repo(),
             user_repository=self.user_repo(),
             unit_of_work=self.unit_of_work(),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def get_feed_use_case(self) -> GetFeedUseCase:
@@ -501,6 +513,7 @@ class Container:
             current_embedding_model=self.current_embedding_model(),
             scoring_fingerprint=settings.feed.scoring_fingerprint(),
             bio_tier_min_cos_sim=settings.feed.bio_tier_min_cos_sim,
+            analytics_tracker=self.analytics_tracker,
         )
 
     def get_feed_card_use_case(self) -> GetFeedCardUseCase:
@@ -517,7 +530,9 @@ class Container:
             viewer_resolver=self.feed_viewer_resolver(),
             feed_repository=self.feed_repo(),
             profile_view_repository=self.profile_view_repo(),
+            session_repository=self.feed_session_repo(),
             unit_of_work=self.unit_of_work(),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def open_contact_use_case(self) -> OpenContactUseCase:
@@ -529,6 +544,7 @@ class Container:
             unit_of_work=self.unit_of_work(),
             daily_limit=settings.contact.daily_limit,
             window=timedelta(hours=settings.contact.window_hours),
+            analytics_tracker=self.analytics_tracker,
         )
 
     def send_contact_notification_use_case(self) -> SendContactNotificationUseCase:

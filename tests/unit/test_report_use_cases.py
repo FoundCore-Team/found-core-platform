@@ -10,10 +10,18 @@ from app.application.use_cases import (
     DismissProfileReportsUseCase,
     GetProfileReportsUseCase,
 )
-from app.domain.enums import AdminActionType, AdminTargetType, ProfileStatus, ReportReason, ReportStatus
+from app.domain.enums import (
+    AdminActionType,
+    AdminTargetType,
+    AnalyticsEvent,
+    ProfileStatus,
+    ReportReason,
+    ReportStatus,
+)
 from app.domain.exceptions import ProfileNotFoundError, ReportProfileNotFoundError
 from tests.fixtures.factories import make_profile_entity, make_report_entity, make_user_entity
 from tests.fixtures.fake_admin_action_repository import FakeAdminActionRepository
+from tests.fixtures.fake_analytics import FakeAnalyticsTracker
 from tests.fixtures.fake_profile_repository import FakeProfileRepository
 from tests.fixtures.fake_report_repository import FakeReportRepository
 from tests.fixtures.fake_unit_of_work import FakeUnitOfWork
@@ -25,10 +33,46 @@ OWNER = make_user_entity(id=1, telegram_id=555)
 T0 = datetime(2026, 11, 8, 10, 0, tzinfo=timezone.utc)
 
 
-def build_create(reports=None, visible=None, repository=None):
+def build_create(reports=None, visible=None, repository=None, tracker=None):
+    """`tracker` is passed only by the tests that read the events."""
     repository = repository or FakeReportRepository(reports, visible=visible if visible is not None else {50: {1}})
     uow = FakeUnitOfWork()
-    return CreateReportUseCase(repository, uow), repository, uow
+    return CreateReportUseCase(repository, uow, tracker or FakeAnalyticsTracker()), repository, uow
+
+
+async def test_a_new_report_is_reported_with_its_reason_and_the_profile_but_no_comment():
+    tracker = FakeAnalyticsTracker()
+    use_case, _, _ = build_create(tracker=tracker)
+
+    await use_case.execute(REPORTER, 1, ReportReason.FAKE, "looks like a bot")
+
+    [event] = tracker.events
+    assert (event.event, event.user_id) == (AnalyticsEvent.REPORT_CREATED, 50)
+    assert event.properties == {"target_profile_id": 1, "reason": "fake"}
+
+
+async def test_a_failed_commit_is_not_reported():
+    tracker = FakeAnalyticsTracker()
+    use_case, _, uow = build_create(tracker=tracker)
+    uow.fail_on_commit = True
+
+    with pytest.raises(RuntimeError):
+        await use_case.execute(REPORTER, 1, ReportReason.SPAM, None)
+
+    assert tracker.events == []
+
+
+async def test_a_repeat_of_an_open_report_and_an_invisible_profile_are_not_reported():
+    tracker = FakeAnalyticsTracker()
+    use_case, _, _ = build_create(tracker=tracker)
+    await use_case.execute(REPORTER, 1, ReportReason.SPAM, None)
+    tracker.events.clear()
+
+    await use_case.execute(REPORTER, 1, ReportReason.SPAM, None)
+    with pytest.raises(ReportProfileNotFoundError):
+        await use_case.execute(REPORTER, 2, ReportReason.SPAM, None)
+
+    assert tracker.events == []
 
 
 # ---------- CreateReportUseCase ----------
