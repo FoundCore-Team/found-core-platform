@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.api.v1 import api_v1_router
 from app.core.config import settings
-from app.infrastructure.helpers import db_helper, redis_helper
+from app.infrastructure.helpers import analytics_helper, db_helper, redis_helper
 
 
 @asynccontextmanager
@@ -13,6 +13,7 @@ async def lifespan(app: FastAPI):
 
     await db_helper.dispose()
     await redis_helper.dispose()
+    await analytics_helper.dispose()
 
 
 main_app = FastAPI(

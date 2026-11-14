@@ -52,7 +52,7 @@ from app.application.use_cases import (
 )
 from app.core.config import settings
 from app.domain.enums import RateLimitAction
-from app.domain.interfaces import IEmbeddingProvider, INotificationSender
+from app.domain.interfaces import IAnalyticsTracker, IEmbeddingProvider, INotificationSender
 from app.domain.services import (
     ExtraAttributesValidator,
     FeedRanker,
@@ -86,9 +86,12 @@ from app.worker.celery_app import celery_app
 
 
 class Container:
-    def __init__(self, session: AsyncSession, redis_client: Redis):
+    def __init__(self, session: AsyncSession, redis_client: Redis, analytics_tracker: IAnalyticsTracker):
         self.session = session
         self.redis_client = redis_client
+        # One tracker per process (`analytics_helper.tracker` in the API, NoopAnalyticsTracker in workers and
+        # scripts), so it is passed in rather than built here like the per-request objects below.
+        self.analytics_tracker = analytics_tracker
 
     # ---------- services ----------
 

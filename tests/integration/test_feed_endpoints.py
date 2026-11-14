@@ -14,6 +14,7 @@ from app.core.composition.container import Container
 from app.core.composition.di import get_container
 from app.domain.enums import ProfileStatus, TagStatus
 from app.infrastructure.helpers import db_helper
+from app.infrastructure.providers import NoopAnalyticsTracker
 from app.main import main_app
 from tests.fixtures.auth import create_user_with_headers
 from tests.fixtures.db_ops import set_user_banned
@@ -118,7 +119,7 @@ async def client_without_redis():
     dead = Redis.from_url("redis://localhost:1/0", decode_responses=True, socket_connect_timeout=0.3, socket_timeout=0.3)
 
     async def _container(session=Depends(db_helper.session_getter)) -> Container:
-        return Container(session=session, redis_client=dead)
+        return Container(session=session, redis_client=dead, analytics_tracker=NoopAnalyticsTracker())
 
     main_app.dependency_overrides[get_container] = _container
     try:

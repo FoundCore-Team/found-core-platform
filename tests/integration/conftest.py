@@ -21,6 +21,7 @@ from app.domain.enums import RateLimitAction
 from app.infrastructure.helpers import db_helper
 from app.infrastructure.models import Base
 from app.main import main_app
+from tests.fixtures.fake_analytics import FakeAnalyticsTracker
 from tests.fixtures.taxonomy_data import TaxonomyIds, seed_basic_taxonomy
 
 
@@ -154,8 +155,15 @@ async def broker_client() -> AsyncIterator[Redis]:
 
 
 @pytest.fixture
-def container(session: AsyncSession, redis_client: Redis) -> Container:
-    return Container(session=session, redis_client=redis_client)
+def analytics_tracker() -> FakeAnalyticsTracker:
+    """The events of one test. `container` and `taxonomy_client` share it, so a test can read what its HTTP
+    requests or use cases sent."""
+    return FakeAnalyticsTracker()
+
+
+@pytest.fixture
+def container(session: AsyncSession, redis_client: Redis, analytics_tracker: FakeAnalyticsTracker) -> Container:
+    return Container(session=session, redis_client=redis_client, analytics_tracker=analytics_tracker)
 
 
 @pytest_asyncio.fixture
@@ -174,12 +182,14 @@ async def async_client() -> AsyncIterator[httpx.AsyncClient]:
 
 
 @pytest_asyncio.fixture
-async def taxonomy_client(redis_client: Redis) -> AsyncIterator[httpx.AsyncClient]:
-    """Like `async_client`, but the container gets the per-test `redis_client`.
+async def taxonomy_client(
+    redis_client: Redis, analytics_tracker: FakeAnalyticsTracker
+) -> AsyncIterator[httpx.AsyncClient]:
+    """Like `async_client`, but the container gets the per-test `redis_client` and `analytics_tracker`.
     Kept separate so auth tests don't need Redis running."""
 
     async def _container(session: AsyncSession = Depends(db_helper.session_getter)) -> Container:
-        return Container(session=session, redis_client=redis_client)
+        return Container(session=session, redis_client=redis_client, analytics_tracker=analytics_tracker)
 
     main_app.dependency_overrides[get_container] = _container
     try:

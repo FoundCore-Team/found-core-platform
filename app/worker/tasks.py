@@ -14,6 +14,7 @@ from app.domain.exceptions import (
     NotificationUnavailableError,
     ProfileChangedDuringEmbeddingError,
 )
+from app.infrastructure.providers import NoopAnalyticsTracker
 from app.worker.celery_app import (
     EMBED_PROFILE_TASK,
     SEND_CONTACT_NOTIFICATION_TASK,
@@ -35,7 +36,10 @@ async def _run_with_container(work: Callable[[Container], Awaitable[T]]) -> T:
     try:
         session_factory = async_sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
         async with session_factory() as session:
-            return await work(Container(session=session, redis_client=redis_client))
+            # Workers send no analytics yet: their own client would have to start after Celery's fork and be flushed
+            # when the worker stops (a follow-up of stage 9).
+            container = Container(session=session, redis_client=redis_client, analytics_tracker=NoopAnalyticsTracker())
+            return await work(container)
     finally:
         await redis_client.aclose()
         await engine.dispose()

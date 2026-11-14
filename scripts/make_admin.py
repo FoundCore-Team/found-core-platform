@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.domain.constants import ADMIN_REASON_MAX_LENGTH
 from app.domain.exceptions import UserBannedError, UserNotFoundError
 from app.infrastructure.helpers import db_helper
+from app.infrastructure.providers import NoopAnalyticsTracker
 
 
 def clean_reason(reason: str) -> str:
@@ -48,7 +49,8 @@ async def main(telegram_id: int, make_admin: bool, reason: str) -> int:
     redis_client = Redis.from_url(str(settings.redis.url))
     try:
         async with db_helper.session_factory() as session:
-            container = Container(session=session, redis_client=redis_client)
+            # SetAdminUseCase sends no analytics events.
+            container = Container(session=session, redis_client=redis_client, analytics_tracker=NoopAnalyticsTracker())
             try:
                 user, changed = await container.set_admin_use_case().execute(telegram_id, make_admin, reason)
             except UserNotFoundError:
