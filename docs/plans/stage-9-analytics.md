@@ -55,7 +55,7 @@
 | Событие | Где (`app/application/use_cases/`) | Свойства |
 |---|---|---|
 | `user_signed_up` / `user_logged_in` | `auth.py`, после commit; `user_logged_in` на каждый вход возвращающегося пользователя (решение 58) | `has_username`; свойство человека `is_admin` (`$set`, решение 65) |
-| `profile_created` | `profile.py` Create, рядом с `embedding_queue.enqueue` | `actor_profile_id`, `category_id`, `role_id`, `tags_count`, `is_first_profile` (захватить до смены `active_profile_id`) |
+| `profile_created` | `profile.py` Create, рядом с `embedding_queue.enqueue` | `actor_profile_id`, `category_id`, `role_id`, `tags_count`, `is_first_profile` (у пользователя нет других анкет; считается запросом, не по `active_profile_id`: раздел 9) |
 | `profile_updated` | `profile.py` Update, на каждый успешный `PUT` (решение 60) | `actor_profile_id`, `category_id`, `role_id`, `tags_count`, `country_changed`, `timezone_changed`, `bio_changed`, `goals_changed`, `tags_changed`, `attributes_changed` (сравнение прочитанной анкеты с сохранённой) |
 | `profile_activated`, `profile_paused`, `profile_resumed`, `profile_deleted` | `profile.py` | `actor_profile_id`, `category_id`, `role_id` (идемпотентный повтор события не даёт; для `profile_deleted` значения взять до удаления) |
 | `feed_page_served` | `feed.py` `GetFeedUseCase` | `actor_profile_id`, `mode`, `offset`, `items_count`, `has_more`, `is_reranked` (`offset` заменяет глубину скролла на сервере) |
@@ -67,7 +67,7 @@
 | `report_created` | `report.py`, только `is_new` | `target_profile_id`, `reason` (решение 63) |
 
 **Для `profile_viewed`:**
-- `IFeedSessionRepository` получает пару методов («запомнить последнюю сессию зрителя» / «прочитать»); реализация в `redis_feed_session.py`: ключ `feed:last:{viewer_profile_id}`, значение — ключ сессии, TTL как у сессии. `GetFeedUseCase` пишет указатель на каждой странице. `RecordProfileViewUseCase` читает указатель → сессию → ищет элемент по `profile_id`. Владельца проверяем только по `viewer_profile_id`: в `GetFeedUseCase` проверяется ещё `params_hash`, но у `POST /feed/views` фильтров нет, а указатель пишет только сервер. Промах или `RedisError` дают пустые поля, не ошибку. Обновить `FakeFeedSessionRepository`.
+- `IFeedSessionRepository` получает пару методов `set_last_session_key` / `get_last_session_key`; реализация в `redis_feed_session.py`: ключ `feed:last:{viewer_profile_id}`, значение — ключ сессии, TTL как у сессии. `GetFeedUseCase` пишет указатель на каждой странице. `RecordProfileViewUseCase` читает указатель → сессию → ищет элемент по `profile_id`. Владельца проверяем только по `viewer_profile_id`: в `GetFeedUseCase` проверяется ещё `params_hash`, но у `POST /feed/views` фильтров нет, а указатель пишет только сервер. Промах или `RedisError` дают пустые поля, не ошибку. Обновить `FakeFeedSessionRepository`.
 - `IProfileViewRepository.add` возвращает `bool`. Обновить `sqlalchemy_profile_view.py`, фейк и существующий интеграционный тест репозитория.
 
 **События фронтенда** (шаги и тайминги онбординга, глубина скролла в интерфейсе, применение фильтров в UI, пустой экран на клиенте) шлёт `posthog-js` с тем же `distinct_id = users.id`, который фронт берёт из `user.id` в ответе `/auth/telegram` (`posthog.identify(String(user.id))`). Имена событий фронта не должны совпадать с серверными.
@@ -195,6 +195,15 @@ pytest -v --cov=app --cov-report=term-missing                                   
 - **Noop-провайдер отдельным тестом не проверяется**: в нём нечего проверять; что `disabled` даёт Noop, проверяет тест helper'а.
 - **PostHog Cloud на бесплатном плане — один проект на организацию** (решение 67 предполагает два). Пока заводим только dev-проект; prod до юриста работает с `disabled` (решение 55), а для prod-проекта позже — вторая организация или pay-as-you-go с лимитом. Код от этого не зависит.
 - **Зависимости SDK** приходят вместе с `posthog` и закреплены в `requirements.txt` по `pip freeze`: `backoff==2.2.1`, `charset-normalizer==3.5.2`, `distro==1.9.0`, `requests==2.34.2`, `urllib3==2.8.0`.
+
+**9b (2026-11-14):**
+
+- **`is_first_profile` считается, а не берётся из `active_profile_id is None`** (как было написано в разделе 3). У пользователя, чьи анкеты все на паузе, активной анкеты тоже нет, и его новая анкета первой не является. Теперь это `len(list_by_user_id) == 1` после вставки: один лишний запрос на создание анкеты (а оно ограничено `profile_write`, 5 за 10 минут). Удалённая раньше анкета не считается: «первая» значит «других сейчас нет».
+- **`profile_viewed` читает Redis после `commit()`**, а не до записи просмотра: медленный Redis (до 0,3 с) не держит транзакцию открытой.
+- **`profile_activated` — только при настоящей смене активной анкеты**; повторная активация уже активной ничего не коммитит и события не даёт (как пауза уже приостановленной).
+- **Ярусы в `feed_ranked` для discovery:** все элементы яруса `DISCOVERY`, поэтому `exact_count`, `partial_count`, `bio_count` равны 0, а сумма совпадает с `candidates_count` только в search. Отдельный `discovery_count` не добавлен: в discovery он всегда равен `candidates_count`.
+- **Порядок событий одной страницы ленты:** `feed_ranked` (если выдача строилась), `feed_page_served`, `feed_empty` (если есть).
+- **Тестовое окружение:** у `FakeUnitOfWork` появился `fail_on_commit` (проверка «коммит упал — события нет»); в `Env` тестов анкет — вторая зона и вторая страна (флаги `country_changed` / `timezone_changed`), в `Env` тестов ленты — два фильтруемых атрибута роли (`filter_attrs`).
 
 Изменения плана до начала работы (2026-11-13, решения 56–68):
 
