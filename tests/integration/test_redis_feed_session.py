@@ -146,3 +146,52 @@ async def test_an_unreachable_redis_reads_as_a_miss_and_writes_do_not_raise():
         await repository.set(KEY, SESSION)
     finally:
         await dead.aclose()
+
+
+# ---------- the viewer's last session pointer ----------
+
+SESSION_KEY = "0123456789abcdef" * 4
+
+
+async def test_the_last_session_pointer_round_trips_per_viewer(repository):
+    await repository.set_last_session_key(7, SESSION_KEY)
+    await repository.set_last_session_key(8, "f" * 64)
+
+    assert await repository.get_last_session_key(7) == SESSION_KEY
+    assert await repository.get_last_session_key(8) == "f" * 64
+    assert await repository.get_last_session_key(9) is None
+
+
+async def test_the_pointer_is_overwritten_by_the_next_page(repository):
+    await repository.set_last_session_key(7, SESSION_KEY)
+    await repository.set_last_session_key(7, "f" * 64)
+
+    assert await repository.get_last_session_key(7) == "f" * 64
+
+
+async def test_the_pointer_has_the_documented_name_and_the_session_ttl(repository, redis_client):
+    await repository.set_last_session_key(7, SESSION_KEY)
+
+    assert await redis_client.get("feed:last:7") == SESSION_KEY
+    assert 0 < await redis_client.ttl("feed:last:7") <= TTL
+
+
+@pytest.mark.parametrize("stored", ["", "garbage", "A" * 64, "0" * 63, "0" * 65, SESSION_KEY + "\n"])
+async def test_an_unreadable_pointer_is_a_miss(repository, redis_client, stored):
+    await redis_client.set("feed:last:7", stored)
+
+    assert await repository.get_last_session_key(7) is None
+
+
+async def test_a_pointer_failure_does_not_raise_and_stops_further_redis_calls():
+    client = MagicMock()
+    client.set = AsyncMock(side_effect=RedisConnectionError("down"))
+    client.get = AsyncMock()
+    repository = RedisFeedSessionRepository(redis_client=client, ttl_seconds=TTL)
+
+    await repository.set_last_session_key(7, SESSION_KEY)
+    assert await repository.get_last_session_key(7) is None
+    assert await repository.get(KEY) is None
+
+    assert client.set.await_count == 1
+    assert client.get.await_count == 0

@@ -31,23 +31,25 @@ async def view_rows(session) -> list[tuple[int, int, datetime]]:
     return [tuple(row) for row in result.all()]
 
 
-async def test_a_view_is_stored(session, two_profiles):
+async def test_a_view_is_stored_and_reported_as_new(session, two_profiles):
     viewer, viewed = two_profiles
 
-    await SqlAlchemyProfileViewRepository(session).add(viewer, viewed, NOW)
+    inserted = await SqlAlchemyProfileViewRepository(session).add(viewer, viewed, NOW)
     await session.commit()
 
+    assert inserted is True
     assert await view_rows(session) == [(viewer, viewed, NOW)]
 
 
-async def test_a_repeat_view_neither_fails_nor_changes_the_first_timestamp(session, two_profiles):
+async def test_a_repeat_view_neither_fails_nor_changes_the_first_timestamp_and_is_not_new(session, two_profiles):
     viewer, viewed = two_profiles
     repository = SqlAlchemyProfileViewRepository(session)
 
-    await repository.add(viewer, viewed, NOW)
-    await repository.add(viewer, viewed, NOW + timedelta(days=1))
+    first = await repository.add(viewer, viewed, NOW)
+    repeat = await repository.add(viewer, viewed, NOW + timedelta(days=1))
     await session.commit()
 
+    assert (first, repeat) == (True, False)
     assert await view_rows(session) == [(viewer, viewed, NOW)]
 
 
@@ -62,17 +64,20 @@ async def test_a_view_is_directional(session, two_profiles):
     assert {(viewer, viewed) for viewer, viewed, _ in await view_rows(session)} == {(first, second), (second, first)}
 
 
-async def test_parallel_first_views_leave_one_row_and_no_error(session, two_profiles):
+async def test_parallel_first_views_leave_one_row_no_error_and_exactly_one_first_view(session, two_profiles):
     viewer, viewed = two_profiles
 
-    async def view_once() -> None:
+    async def view_once() -> bool:
         async with db_helper.session_factory() as own_session:
-            await SqlAlchemyProfileViewRepository(own_session).add(viewer, viewed, NOW)
+            inserted = await SqlAlchemyProfileViewRepository(own_session).add(viewer, viewed, NOW)
             await own_session.commit()
+            return inserted
 
-    await asyncio.gather(*(view_once() for _ in range(15)))
+    results = await asyncio.gather(*(view_once() for _ in range(15)))
 
     assert await view_rows(session) == [(viewer, viewed, NOW)]
+    # The losers waited on the primary key and got no row back: only one request may say "first view".
+    assert sorted(results) == [False] * 14 + [True]
 
 
 @pytest.mark.parametrize("deleted", ["viewer", "viewed"])
