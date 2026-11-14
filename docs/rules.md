@@ -129,6 +129,17 @@ Do not introduce another DI or composition pattern.
 * A limit that depends on what the use case finds (counting only a cache miss) is checked in the use case through `RateLimitGuard`, not in a dependency.
 * Its test lowers only that limit with `monkeypatch.setattr(settings.rate_limit, ...)` (the autouse fixture in `tests/integration/conftest.py` lifts all of them for the other tests) and checks that request N passes, request N+1 is `429` with `Retry-After`, and another user or action is not affected.
 
+### Analytics
+
+* Product events are sent only by use cases, through the `IAnalyticsTracker` the use case gets in its constructor (`Container.analytics_tracker`); never from a router, a dependency or a middleware.
+* A writing use case tracks **after `commit()`**. An idempotent repeat (an early return without a write) and any failure, a failed commit included, send nothing. A read-only use case tracks when its result is ready.
+* The tracker never raises and never blocks: do not wrap a `track` call in `try/except` and do not make a request wait for analytics.
+* `user_id` is `users.id`. Properties carry no personal data: no names, usernames, `telegram_id`, profile texts, report comments or tag titles. Internal ids are allowed; a profile is `actor_profile_id` when it is the actor's own and `target_profile_id` when it is someone else's, with the same names in every event.
+* Property values are flat primitives (`str | int | float | bool | None`): a list becomes boolean flags or one sorted comma-separated string. `FakeAnalyticsTracker` fails a test on anything else.
+* A new event is a member of `AnalyticsEvent`, named `object_action` in the past tense. A name never changes once events are collected under it (old and new events would land on different charts); the frontend never reuses a backend name.
+* `env` is added by the tracker; use cases never set it. Dev and prod are different PostHog projects, and the prod project's key exists only in the prod environment.
+* Every event comes with a unit test that checks its exact properties and that a repeat and a failed commit (`FakeUnitOfWork.fail_on_commit`) send nothing.
+
 ### Mappers
 
 Use directional names:

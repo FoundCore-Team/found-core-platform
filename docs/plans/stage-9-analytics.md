@@ -205,6 +205,13 @@ pytest -v --cov=app --cov-report=term-missing                                   
 - **Порядок событий одной страницы ленты:** `feed_ranked` (если выдача строилась), `feed_page_served`, `feed_empty` (если есть).
 - **Тестовое окружение:** у `FakeUnitOfWork` появился `fail_on_commit` (проверка «коммит упал — события нет»); в `Env` тестов анкет — вторая зона и вторая страна (флаги `country_changed` / `timezone_changed`), в `Env` тестов ленты — два фильтруемых атрибута роли (`filter_attrs`).
 
+**9c (2026-11-14):**
+
+- `CLAUDE.md`: новый раздел «Analytics» (порт, кто шлёт, провайдеры, путь события через очередь SDK и `flush`, таблица событий, указатель для `profile_viewed`, приватность, конфиг, контракт для фронта, follow-up, файлы, локальный запуск); контракт «неизменённую анкету не отправлять» — в «Profiles»; указатель `feed:last:*` — в «Feed algorithm» и в «Tech stack»; `posthog` перенесён в «In use»; `Container`, `di.py`, дерево слоёв, prod-проверки, строка этапа, критерии приёмки и риски обновлены.
+- `docs/rules.md`: раздел «Analytics» (после «Rate limiting»).
+- Условия использования: в репозитории их текста нет, поэтому требование (упомянуть статистику для PostHog, формулировка от юриста, без слова «обезличенные») записано в follow-up `terms_accepted_at` в `CLAUDE.md`, раздел «Profiles».
+- Раздел 6 (дашборды) оставлен как был: он уже описывает то, что собрано в коде.
+
 Изменения плана до начала работы (2026-11-13, решения 56–68):
 
 - `feed_page_loaded` → `feed_page_served`, `feed_session_built` → `feed_ranked`, `card_opened` → `profile_viewed`, `session_hit` → `is_reranked`.
