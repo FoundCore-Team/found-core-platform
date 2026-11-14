@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.core.config import RateLimitConfig, Settings
+from app.core.config import AnalyticsConfig, RateLimitConfig, Settings
 from app.domain.enums import RateLimitAction
 
 STRONG_SECRET = "k3J9vQ2mXw7LpR5tYb8NcA4dFg6HsZ1u"
@@ -18,9 +18,13 @@ def _settings(**overrides) -> Settings:
         "worker": {"broker_url": "redis://localhost:6379/2"},
         "embedding": {"provider": "openai", "openai_api_key": "sk-test-key"},
         "notification": {"provider": "telegram", "mini_app_url": "https://app.example.com"},
+        "analytics": {"provider": "disabled"},
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
+
+
+POSTHOG_KEY = "phc_test_project_key"
 
 
 def test_production_with_real_secrets_starts():
@@ -165,6 +169,74 @@ def test_notification_defaults():
 def test_notification_config_rejects_invalid_values(override):
     with pytest.raises(ValidationError):
         _settings(notification={"provider": "telegram", "mini_app_url": "https://app.example.com", **override})
+
+
+def test_production_allows_disabled_analytics():
+    # The prod setting until the terms of use and the legal review are done (plan of stage 9, decision 55).
+    assert _settings().analytics.provider == "disabled"
+
+
+def test_production_refuses_the_stub_analytics_provider():
+    with pytest.raises(ValidationError, match="ANALYTICS__PROVIDER must not be stub"):
+        _settings(analytics={"provider": "stub"})
+
+
+def test_production_accepts_posthog_with_a_key_and_an_https_host():
+    config = _settings(analytics={"provider": "posthog", "project_api_key": POSTHOG_KEY}).analytics
+
+    assert config.host == "https://eu.i.posthog.com"
+    assert config.project_api_key.get_secret_value() == POSTHOG_KEY
+
+
+@pytest.mark.parametrize("host", ["http://eu.i.posthog.com", "eu.i.posthog.com"])
+def test_production_refuses_posthog_with_a_host_that_is_not_https(host):
+    with pytest.raises(ValidationError, match="ANALYTICS__HOST must be an https URL"):
+        _settings(analytics={"provider": "posthog", "project_api_key": POSTHOG_KEY, "host": host})
+
+
+@pytest.mark.parametrize("env", ["dev", "prod"])
+@pytest.mark.parametrize("api_key", [None, "", "   "])
+def test_posthog_without_a_project_key_is_refused_in_every_environment(env, api_key):
+    # The SDK would silently drop every event with an empty key, so this is not only a prod check.
+    with pytest.raises(ValidationError, match="PROJECT_API_KEY is required"):
+        _settings(
+            run={"env": env, "reload": env != "prod"},
+            analytics={"provider": "posthog", "project_api_key": api_key},
+        )
+
+
+def test_posthog_with_a_plain_http_host_is_fine_outside_production():
+    config = _settings(
+        run={"env": "dev", "reload": True},
+        analytics={"provider": "posthog", "project_api_key": POSTHOG_KEY, "host": "http://localhost:8010"},
+    ).analytics
+
+    assert config.host == "http://localhost:8010"
+
+
+def test_analytics_defaults():
+    # Built directly: through Settings, the APP_CONFIG__ANALYTICS__PROVIDER=disabled of .env.test would be merged in.
+    config = AnalyticsConfig()
+
+    assert (config.provider, config.host, config.project_api_key) == ("stub", "https://eu.i.posthog.com", None)
+    # The SDK's own defaults in posthog 7.81.1, and the timeouts of decision 66.
+    assert (config.max_queue_size, config.flush_at, config.flush_interval_seconds) == (10_000, 100, 5.0)
+    assert (config.request_timeout_seconds, config.flush_timeout_seconds) == (5.0, 3.0)
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"max_queue_size": 0},
+        {"flush_at": 0},
+        {"flush_interval_seconds": 0},
+        {"request_timeout_seconds": -1},
+        {"flush_timeout_seconds": 0},
+    ],
+)
+def test_analytics_config_rejects_non_positive_values(override):
+    with pytest.raises(ValidationError):
+        _settings(analytics={"provider": "disabled", **override})
 
 
 def test_contact_limit_defaults():

@@ -1,6 +1,7 @@
 __all__ = [
     "IUserRepository",
     "IAdminActionRepository",
+    "IAnalyticsTracker",
     "IContactOpenRepository",
     "IFeedRepository",
     "IFeedSessionRepository",
@@ -19,6 +20,7 @@ __all__ = [
 ]
 
 from app.domain.interfaces.admin_action import IAdminActionRepository
+from app.domain.interfaces.analytics import IAnalyticsTracker
 from app.domain.interfaces.contact_open import IContactOpenRepository
 from app.domain.interfaces.embedding_provider import IEmbeddingProvider
 from app.domain.interfaces.embedding_queue import IEmbeddingJobQueue

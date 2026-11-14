@@ -1,6 +1,7 @@
 __all__ = [
     "AdminActionType",
     "AdminTargetType",
+    "AnalyticsEvent",
     "EmbeddingStatus",
     "NotificationStatus",
     "FeedEndReason",
@@ -16,6 +17,7 @@ __all__ = [
     "TagStatus",
 ]
 
+from app.domain.enums.analytics import AnalyticsEvent
 from app.domain.enums.contact import NotificationStatus
 from app.domain.enums.feed import FeedEndReason, FeedMode, FeedReasonCode, FeedTier
 from app.domain.enums.moderation import AdminActionType, AdminTargetType
