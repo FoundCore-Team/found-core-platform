@@ -29,7 +29,7 @@
 | 48 | **`distinct_id = str(users.id)`.** В свойствах нет имён, username, `telegram_id`, текстов анкет и названий тегов. GeoIP выключен. Внутренние id анкет разрешены (решение 61). | утверждено | Число без Telegram-данных; фронт получает `user.id` при логине и склеивает свои события с нашими. | HMAC-псевдоним (новый секрет, поле в ответе, больше кода). |
 | 49 | **Порт `IAnalyticsTracker` + провайдеры `stub` / `posthog` / `disabled`.** Порт синхронный и **не бросает**. Вне prod по умолчанию `stub` (пишет событие в лог), `disabled` — ничего не делает и разрешён в prod. В prod `stub` запрещён, `posthog` требует ключ и https-хост. | утверждено (`disabled` — по решению пользователя) | Тот же паттерн, что у `embedding.provider` и `notification.provider`; ключ для разработки не нужен. | Только `stub`/`posthog` (нельзя запустить prod без аналитики, пока нет юридической проверки). |
 | 50 | **События шлют use case'ы.** Пишущий use case — после `commit()`, рядом с существующими «после коммита» действиями; ранний возврат без записи (идемпотентный повтор) события не даёт. Read-only use case (лента) — когда результат уже готов. Роутеры о событиях не знают. | утверждено (формулировка уточнена 2026-11-13: «только при реальном изменении» противоречила решениям 58 и 60 и не подходила к ленте, которая ничего не коммитит) | Иначе можно отправить «анкета создана» и откатить транзакцию. Правило `docs/rules.md` «бизнес-логика вне роутеров». | События из роутеров или middleware. |
-| 51 | **Один клиент на процесс (`analytics_helper`), создаётся лениво.** Flush в `lifespan` при остановке, с таймаутом. | утверждено | `Container` строится на каждый запрос, клиент с фоновым потоком на запрос не годится. Поток SDK не переживает `fork`, поэтому клиент нельзя создавать при импорте. | Клиент на запрос; создание при импорте модуля. |
+| 51 | **Один клиент на процесс (`analytics_helper`), создаётся лениво.** Flush в `lifespan` при остановке, с таймаутом. | утверждено | `Container` строится на каждый запрос, клиент с фоновым потоком на запрос не годится. Лениво — чтобы процесс, который событий не шлёт (воркер, скрипт, тесты), не создавал клиент и поток. (Довод «поток не переживает `fork`» в SDK 7.81.1 снят: он сам пересоздаёт очередь и поток в дочернем процессе, раздел 9.) | Клиент на запрос; создание при импорте модуля. |
 | 52 | **`profile_viewed` берёт ярус и score из указателя в Redis** `feed:last:{viewer_profile_id}` → ключ сессии → элемент сессии. | утверждено | `POST /feed/views` получает только `profile_id`, ключ сессии лежит в курсоре, которого в этом запросе нет. Значение нельзя подделать с клиента. | Ярус и score от фронта; событие без яруса. |
 | 53 | **`profile_viewed` шлётся на каждый просмотр с `is_first_view`.** Для этого `IProfileViewRepository.add` возвращает `bool` («вставлено»). | утверждено | В PostHog можно считать и уникальные открытия, и повторы. | Только первый просмотр. |
 | 54 | **События воркеров откладываем.** В `worker/tasks.py` в `Container` передаётся `NoopAnalyticsTracker`. | утверждено | Воркеру нужен свой клиент, правильный запуск после `fork` и flush при остановке: отдельная небольшая задача. | Событие результата уведомления (`sent`/`failed`/`skipped`) сразу. |
@@ -89,19 +89,19 @@
 
 Новые:
 - `app/domain/enums/analytics.py` (`AnalyticsEvent`, StrEnum, имена snake_case в прошедшем времени)
-- `app/domain/interfaces/analytics.py` (`IAnalyticsTracker`: `track(event, user_id, properties, person_properties)`, `close()`; свойства только `str | int | float | bool | None`; `person_properties` (`| None`) передаёт только `auth.py` для `is_admin`, решение 65; провайдер кладёт их в `$set` того же события — проверить в 9a по документации SDK)
-- `app/infrastructure/providers/{stub_analytics,noop_analytics,posthog_analytics}.py` (PostHog: клиент подставляется в тестах; провайдер получает `env` в конструкторе и добавляет его в свойства каждого события (решение 67); любое исключение SDK → `logger.warning`, наружу не выходит; `close()` → `shutdown()` с таймаутом)
+- `app/domain/interfaces/analytics.py` (`IAnalyticsTracker`: `track(event, user_id, properties, *, person_properties=None)`, `flush()`; свойства только `str | int | float | bool | None` (`AnalyticsValue`); `person_properties` передаёт только `auth.py` для `is_admin`, решение 65; провайдер кладёт их в `properties["$set"]` того же события)
+- `app/infrastructure/providers/{stub_analytics,noop_analytics,posthog_analytics}.py` (PostHog: клиент подставляется в тестах; провайдер получает `env` в конструкторе и добавляет его в свойства каждого события последним, так что вызывающий его не перезапишет (решение 67); `disable_geoip=True` в каждом `capture`; любое исключение SDK → `logger.warning`, наружу не выходит; `flush()` → `client.flush(timeout_seconds=flush_timeout_seconds)`, не `shutdown()`: раздел 9)
 - `app/infrastructure/helpers/analytics_helper.py` (одиночный трекер по `settings.analytics`, ленивое создание из потока event loop, `dispose()` через `asyncio.to_thread`)
 - `tests/fixtures/fake_analytics.py` (`FakeAnalyticsTracker`: реализует ABC, пишет копии событий в `events`)
 - `tests/unit/test_analytics_providers.py`
 
 Изменяемые:
-- `app/core/config.py`: `AnalyticsConfig` (plain `BaseModel`): `provider: Literal["stub","posthog","disabled"] = "stub"`, `host` (по умолчанию EU-хост PostHog), `project_api_key: str | None` (без дефолта-секрета), размер очереди, размер пачки и интервал (значения SDK по умолчанию), `request_timeout_seconds = 5`, `shutdown_timeout_seconds = 3` (решение 66). Валидатор: `posthog` требует ключ. В `Settings`: `analytics: AnalyticsConfig = AnalyticsConfig()`; в `_refuse_insecure_production_settings` (рядом с notification и embedding): в prod `stub` запрещён, `posthog` требует ключ и https-хост, `disabled` разрешён.
+- `app/core/config.py`: `AnalyticsConfig` (plain `BaseModel`): `provider: Literal["stub","posthog","disabled"] = "stub"`, `host = "https://eu.i.posthog.com"` (хост приёма событий EU), `project_api_key: SecretStr | None` (без дефолта), `max_queue_size = 10000`, `flush_at = 100`, `flush_interval_seconds = 5.0` (значения SDK 7.81.1 по умолчанию), `request_timeout_seconds = 5`, `flush_timeout_seconds = 3` (решение 66). Валидатор: `posthog` требует непустой ключ в любом окружении, все числа положительные. В `Settings`: `analytics: AnalyticsConfig = AnalyticsConfig()`; в `_refuse_insecure_production_settings` (рядом с notification и embedding): в prod `stub` запрещён, `posthog` требует https-хост, `disabled` разрешён.
 - `app/core/composition/container.py`, `app/core/composition/di.py`: параметр конструктора `analytics_tracker`; `di.py` передаёт `analytics_helper.tracker`. Найти и поправить все `Container(` в `tests/` (`tests/integration/conftest.py` в двух местах, `test_taxonomy_endpoints.py`, `test_feed_endpoints.py`, `test_admin_races.py`).
 - `scripts/make_admin.py`, `scripts/dev_seed_profiles.py`: тоже строят `Container`, передают `NoopAnalyticsTracker()` (событий не шлют: seed берёт только репозитории и валидатор, `make_admin` вызывает `SetAdminUseCase`).
 - `app/main.py`: в `lifespan` `await analytics_helper.dispose()` после `redis_helper.dispose()`.
 - `app/worker/tasks.py` (`_run_with_container`): `NoopAnalyticsTracker()`.
-- `requirements.txt`: `posthog` с точной версией (не новее, чем две недели назад).
+- `requirements.txt`: `posthog==7.81.1` (вышла 2026-10-30) и его зависимости (`requests`, `backoff`, `distro`, `urllib3`, `charset-normalizer`) с точными версиями из `pip freeze`.
 - `.env.template`: закомментированные `APP_CONFIG__ANALYTICS__PROVIDER`, `__HOST`, `__PROJECT_API_KEY`.
 - `.env.test`: `APP_CONFIG__ANALYTICS__PROVIDER=disabled` (тесты не должны создавать настоящий клиент).
 - `tests/unit/test_settings.py`: prod с `stub` отказ, `posthog` без ключа отказ, `posthog` с http-хостом отказ, `disabled` разрешён, дефолты.
@@ -172,8 +172,8 @@ pytest -v --cov=app --cov-report=term-missing                                   
 - **Объём событий** косвенно ограничен нашими rate limits: события идут только из запросов, прошедших лимит. Поэтому нет события на каждый отказ.
 - **Условие включения в prod:** `terms_accepted_at` + проверка юристом (152-ФЗ, GDPR); до этого `provider=disabled`.
 - **Обязательство для `DELETE /users/me`:** при удалении аккаунта удалять человека и в PostHog (право на удаление по GDPR). Этап 9 этого не делает.
-- **Проверить в документации выбранной версии SDK:** сигнатуру `capture` (отличается между мажорными версиями), что при полной очереди `capture` не блокируется, а отбрасывает событие, что `sync_mode` выключен, как отключить GeoIP, как ограничить таймаут `shutdown`. Насколько известно, у `shutdown()` своего таймаута нет (ждёт, пока очередь опустеет, с повторами при недоступном PostHog): ограничивать снаружи, `asyncio.wait_for(asyncio.to_thread(...), timeout)`; сам поток при этом продолжит работу, `lifespan` просто перестанет его ждать.
-- **Fork.** Клиент создаётся лениво, не при импорте: фоновый поток SDK не переживает `fork` (воркеры uvicorn, Celery prefork).
+- **Проверено по исходнику SDK 7.81.1** (`posthog/client.py`, `args.py`): `capture(event, *, distinct_id, properties, disable_geoip, ...)` под `@no_throw` (бросает только с `debug=True`); при полной очереди событие отбрасывается без блокировки (`queue.put(block=False)`); `sync_mode=False` по умолчанию; `disable_geoip=True` по умолчанию у клиента, передаём и в каждый `capture`; `$set` в свойствах события применяется к человеку (метод `set()` дал бы отдельное событие `$set`); у `shutdown()` таймаута нет («Event draining has no timeout»), а у `flush(timeout_seconds)` есть и клиент после него работает — поэтому порт зовёт `flush`. Повторы отправки: `max_retries=3` (оставлен по умолчанию). При выходе процесса SDK сам делает ещё одну попытку до 1 с (`atexit`) и останавливает свой daemon-поток: остановка ≈ 3 + 1 с.
+- **Fork.** SDK регистрирует `os.register_at_fork` и в дочернем процессе пересоздаёт очередь и поток. Клиент всё равно создаётся лениво (решение 51).
 
 ## 8. Follow-up после этапа 9
 
@@ -185,7 +185,18 @@ pytest -v --cov=app --cov-report=term-missing                                   
 
 ## 9. Отклонения
 
-Отклонений в коде пока нет. Изменения плана до начала работы (2026-11-13, решения 56–68):
+**9a (2026-11-14):**
+
+- **Порт: `flush()` вместо `close()`.** У `shutdown()` SDK нет таймаута: при недоступном PostHog он ждёт очередь с повторами. `flush(timeout_seconds)` ограничен самим SDK, и клиент после него остаётся рабочим (важно для тестов, где `lifespan` запускается много раз). Daemon-поток останавливает `atexit`-хук SDK. Внешний `asyncio.wait_for` не нужен. Поле конфига — `flush_timeout_seconds` (было `shutdown_timeout_seconds`).
+- **Ключ обязателен для `posthog` в любом окружении**, а не только в prod: SDK с пустым ключом молча выключается (`disabled = not api_key`), и dev-проверка «события дошли» тихо ничего бы не показала. В prod-проверке остались `stub` и https-хост. Ключ — `SecretStr`, как у OpenAI (не светится в `repr` настроек), хотя по смыслу PostHog он публичный.
+- **Fork**: довод решения 51 устарел (SDK 7.x сам переживает fork), ленивое создание оставлено по другой причине — см. решение 51.
+- **`person_properties` — keyword-only с `None` по умолчанию**: передаёт только `auth.py`, остальные десять вызовов его не пишут.
+- **`FakeAnalyticsTracker` строже настоящего**: непримитивное значение (список, словарь) роняет тест сразу. PostHog список бы принял, но порт его запрещает.
+- **Noop-провайдер отдельным тестом не проверяется**: в нём нечего проверять; что `disabled` даёт Noop, проверяет тест helper'а.
+- **PostHog Cloud на бесплатном плане — один проект на организацию** (решение 67 предполагает два). Пока заводим только dev-проект; prod до юриста работает с `disabled` (решение 55), а для prod-проекта позже — вторая организация или pay-as-you-go с лимитом. Код от этого не зависит.
+- **Зависимости SDK** приходят вместе с `posthog` и закреплены в `requirements.txt` по `pip freeze`: `backoff==2.2.1`, `charset-normalizer==3.5.2`, `distro==1.9.0`, `requests==2.34.2`, `urllib3==2.8.0`.
+
+Изменения плана до начала работы (2026-11-13, решения 56–68):
 
 - `feed_page_loaded` → `feed_page_served`, `feed_session_built` → `feed_ranked`, `card_opened` → `profile_viewed`, `session_hit` → `is_reranked`.
 - `profile_updated` шлётся на каждый успешный `PUT` с флагами `*_changed`; раньше было «только при реальном изменении», чего код не умеет: `PUT` — полная замена без сравнения.
