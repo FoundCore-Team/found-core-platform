@@ -1,18 +1,24 @@
 from datetime import datetime, timezone
 
 from app.domain.entities import NewReportEntity, ReportEntity, UserEntity
-from app.domain.enums import ReportReason
+from app.domain.enums import AnalyticsEvent, ReportReason
 from app.domain.exceptions import ReportProfileNotFoundError
-from app.domain.interfaces import IReportRepository, IUnitOfWork
+from app.domain.interfaces import IAnalyticsTracker, IReportRepository, IUnitOfWork
 
 
 class CreateReportUseCase:
     """A user reports a profile they could see. One OPEN report per (reporter, profile): a repeat while it is open
     returns the existing report and writes nothing; after it is closed a new one may be filed."""
 
-    def __init__(self, report_repository: IReportRepository, unit_of_work: IUnitOfWork) -> None:
+    def __init__(
+        self,
+        report_repository: IReportRepository,
+        unit_of_work: IUnitOfWork,
+        analytics_tracker: IAnalyticsTracker,
+    ) -> None:
         self._report_repository = report_repository
         self._unit_of_work = unit_of_work
+        self._analytics_tracker = analytics_tracker
 
     async def execute(
         self, user: UserEntity, profile_id: int, reason: ReportReason, comment: str | None
@@ -34,6 +40,12 @@ class CreateReportUseCase:
             created = await self._report_repository.create(new_report)
             if created is not None:
                 await self._unit_of_work.commit()
+                # No comment text and no active profile: the reporter needs neither, and the text is personal data.
+                self._analytics_tracker.track(
+                    AnalyticsEvent.REPORT_CREATED,
+                    user.id,
+                    {"target_profile_id": profile_id, "reason": reason.value},
+                )
                 return created, True
             existing = await self._report_repository.get_open_by_reporter_and_profile(user.id, profile_id)
             if existing is not None:

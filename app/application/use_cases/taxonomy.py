@@ -6,9 +6,9 @@ from app.domain.entities import (
     RoleFieldEntity,
     TagEntity,
 )
-from app.domain.enums import TagStatus
+from app.domain.enums import AnalyticsEvent, TagStatus
 from app.domain.exceptions import CategoryNotFoundError, RoleNotFoundError, TagRejectedError
-from app.domain.interfaces import ITaxonomyCacheRepository, ITaxonomyRepository, IUnitOfWork
+from app.domain.interfaces import IAnalyticsTracker, ITaxonomyCacheRepository, ITaxonomyRepository, IUnitOfWork
 from app.domain.services import TagTitleValidator, clean_tag_title, normalize_tag_title
 
 
@@ -100,10 +100,12 @@ class CreateCustomTagUseCase:
         taxonomy_repository: ITaxonomyRepository,
         tag_title_validator: TagTitleValidator,
         unit_of_work: IUnitOfWork,
+        analytics_tracker: IAnalyticsTracker,
     ) -> None:
         self._taxonomy_repository = taxonomy_repository
         self._tag_title_validator = tag_title_validator
         self._unit_of_work = unit_of_work
+        self._analytics_tracker = analytics_tracker
 
     async def execute(self, title: str, category_id: int, role_id: int | None, user_id: int) -> TagEntity:
         title = clean_tag_title(title)
@@ -119,6 +121,7 @@ class CreateCustomTagUseCase:
 
         normalized_title = normalize_tag_title(title)
         tag = await self._taxonomy_repository.get_tag_by_normalized_title(normalized_title)
+        is_new_tag = False
         if tag is None:
             tag = await self._taxonomy_repository.create_tag(
                 NewTagEntity(
@@ -128,6 +131,8 @@ class CreateCustomTagUseCase:
                     created_by_user_id=user_id,
                 )
             )
+            # None means a concurrent request won the insert: the tag exists, but this request did not create it.
+            is_new_tag = tag is not None
         if tag is None:
             # A concurrent request inserted the same normalized_title between our SELECT and INSERT.
             tag = await self._taxonomy_repository.get_tag_by_normalized_title(normalized_title)
@@ -145,4 +150,12 @@ class CreateCustomTagUseCase:
             NewTagScopeEntity(tag_id=tag.id, category_id=category_id, role_id=role_id)
         )
         await self._unit_of_work.commit()
+        if is_new_tag:
+            # Reusing an existing tag (or following an alias) adds only a scope, which is not a new tag. The title
+            # stays out: the id leads to it in Postgres.
+            self._analytics_tracker.track(
+                AnalyticsEvent.TAG_CREATED,
+                user_id,
+                {"tag_id": tag.id, "category_id": category_id, "role_id": role_id},
+            )
         return tag

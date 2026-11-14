@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.application.services.feed_viewer_resolver import FeedViewerResolver
 from app.domain.entities import ContactNotificationContext, OpenedContact, UserEntity
-from app.domain.enums import NotificationStatus
+from app.domain.enums import AnalyticsEvent, NotificationStatus
 from app.domain.exceptions import (
     ContactLimitReachedError,
     ContactProfileNotFoundError,
@@ -10,6 +10,7 @@ from app.domain.exceptions import (
     NotificationUnavailableError,
 )
 from app.domain.interfaces import (
+    IAnalyticsTracker,
     IContactOpenRepository,
     INotificationJobQueue,
     INotificationSender,
@@ -35,6 +36,7 @@ class OpenContactUseCase:
         unit_of_work: IUnitOfWork,
         daily_limit: int,
         window: timedelta,
+        analytics_tracker: IAnalyticsTracker,
     ) -> None:
         self._viewer_resolver = viewer_resolver
         self._contact_open_repository = contact_open_repository
@@ -43,6 +45,7 @@ class OpenContactUseCase:
         self._unit_of_work = unit_of_work
         self._daily_limit = daily_limit
         self._window = window
+        self._analytics_tracker = analytics_tracker
 
     async def _repeat(self, username: str, user_id: int, now: datetime) -> OpenedContact:
         usage = await self._contact_open_repository.get_window_usage(user_id, now - self._window)
@@ -91,11 +94,18 @@ class OpenContactUseCase:
         # After the commit, so the worker finds the row. Never raises: if the broker is down the row stays `pending`
         # and the sweep schedules it later.
         await self._notification_queue.enqueue(viewer.profile_id, profile_id)
-        return OpenedContact(
-            username=username,
-            is_new_open=True,
-            remaining_today=self._daily_limit - usage.count - 1,
+        remaining_today = self._daily_limit - usage.count - 1
+        # Only a first-time open; every repeat returned above without an event.
+        self._analytics_tracker.track(
+            AnalyticsEvent.CONTACT_OPENED,
+            user.id,
+            {
+                "actor_profile_id": viewer.profile_id,
+                "target_profile_id": profile_id,
+                "remaining_today": remaining_today,
+            },
         )
+        return OpenedContact(username=username, is_new_open=True, remaining_today=remaining_today)
 
 
 class SendContactNotificationUseCase:

@@ -5,9 +5,10 @@ import pytest
 from app.application.services.feed_viewer_resolver import FeedViewerResolver
 from app.application.use_cases import OpenContactUseCase
 from app.domain.entities import ProfileEmbeddingEntity
-from app.domain.enums import EmbeddingStatus, NotificationStatus, ProfileStatus
+from app.domain.enums import AnalyticsEvent, EmbeddingStatus, NotificationStatus, ProfileStatus
 from app.domain.exceptions import ContactLimitReachedError, ContactProfileNotFoundError, NoActiveProfileError
 from tests.fixtures.factories import make_profile_entity, make_user_entity
+from tests.fixtures.fake_analytics import FakeAnalyticsTracker
 from tests.fixtures.fake_contact_open_repository import FakeContactOpenRepository
 from tests.fixtures.fake_notification import FakeNotificationQueue
 from tests.fixtures.fake_profile_embedding_repository import FakeProfileEmbeddingRepository
@@ -40,6 +41,7 @@ class Env:
         )
         self.uow = FakeUnitOfWork()
         self.queue = FakeNotificationQueue()
+        self.analytics = FakeAnalyticsTracker()
         self.use_case = OpenContactUseCase(
             viewer_resolver=FeedViewerResolver(self.profiles, embeddings, MODEL),
             contact_open_repository=self.contacts,
@@ -48,6 +50,7 @@ class Env:
             unit_of_work=self.uow,
             daily_limit=limit,
             window=WINDOW,
+            analytics_tracker=self.analytics,
         )
 
     async def open(self, profile_id: int):
@@ -239,3 +242,52 @@ async def test_without_an_active_profile_nothing_is_opened(env_kwargs):
         await env.open(201)
 
     assert env.contacts.opens == [] and env.uow.commits == 0
+
+
+# ---------- analytics ----------
+
+
+async def test_a_first_open_is_reported_with_both_profiles_and_the_remaining_limit():
+    env = Env()
+
+    await env.open(201)
+
+    [event] = env.analytics.events
+    assert (event.event, event.user_id) == (AnalyticsEvent.CONTACT_OPENED, 1)
+    assert event.properties == {
+        "actor_profile_id": VIEWER_PROFILE,
+        "target_profile_id": 201,
+        "remaining_today": LIMIT - 1,
+    }
+    assert "anna" not in event.properties.values()  # the username it handed out stays out of analytics
+
+
+async def test_a_repeat_open_is_not_reported():
+    env = Env()
+    await env.open(201)
+
+    await env.open(201)
+
+    assert len(env.analytics.events) == 1
+
+
+async def test_a_failed_commit_is_not_reported():
+    env = Env()
+    env.uow.fail_on_commit = True
+
+    with pytest.raises(RuntimeError):
+        await env.open(201)
+
+    assert env.analytics.events == []
+
+
+async def test_a_refused_open_is_not_reported():
+    env = Env()
+    env.seed_opens(LIMIT)
+
+    with pytest.raises(ContactLimitReachedError):
+        await env.open(201)
+    with pytest.raises(ContactProfileNotFoundError):
+        await env.open(12345)
+
+    assert env.analytics.events == []

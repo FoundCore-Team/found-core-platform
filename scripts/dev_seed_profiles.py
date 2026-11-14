@@ -34,6 +34,7 @@ from app.domain.enums import ProfileStatus, TagStatus
 from app.domain.services import clean_tag_title, normalize_tag_title
 from app.infrastructure.helpers import db_helper
 from app.infrastructure.models import CategoryModel, ProfileEmbeddingModel, ProfileModel, RoleModel, UserModel
+from app.infrastructure.providers import NoopAnalyticsTracker
 from app.worker.tasks import run_embed_profile
 
 DATA_DIR = Path(__file__).parent / "data" / "seed_profiles"
@@ -267,7 +268,8 @@ async def main(reset: bool = False, reembed: bool = False) -> None:
     redis_client = Redis.from_url(str(settings.redis.url))
     try:
         async with db_helper.session_factory() as session:
-            container = Container(session=session, redis_client=redis_client)
+            # The seed uses only repositories and the validator, which send no analytics events.
+            container = Container(session=session, redis_client=redis_client, analytics_tracker=NoopAnalyticsTracker())
             if reset:
                 await session.execute(delete(UserModel).where(_seed_users_filter()))
             to_embed = await _seed_profiles(session, container, users)

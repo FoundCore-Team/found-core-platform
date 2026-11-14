@@ -84,16 +84,18 @@ class FakeFeedRepository(IFeedRepository):
 
 class FakeFeedSessionRepository(IFeedSessionRepository):
     """Dict-backed session store. With `outage=True` it behaves like the Redis one during an outage: reads return
-    None and writes are no-ops. `expire()` drops everything, like the TTL does."""
+    None and writes are no-ops. `expire()` drops everything, like the TTL does (sessions and pointers alike)."""
 
     def __init__(self, outage: bool = False) -> None:
         self.outage = outage
         self._store: dict[str, FeedSession] = {}
+        self.last_session_keys: dict[int, str] = {}
         self.gets: list[str] = []
         self.sets: list[str] = []
 
     def expire(self) -> None:
         self._store.clear()
+        self.last_session_keys.clear()
 
     def put(self, session_key: str, session: FeedSession) -> None:
         self._store[session_key] = deepcopy(session)
@@ -114,6 +116,15 @@ class FakeFeedSessionRepository(IFeedSessionRepository):
         if not self.outage:
             self._store[session_key] = deepcopy(session)
 
+    async def get_last_session_key(self, viewer_profile_id: int) -> str | None:
+        if self.outage:
+            return None
+        return self.last_session_keys.get(viewer_profile_id)
+
+    async def set_last_session_key(self, viewer_profile_id: int, session_key: str) -> None:
+        if not self.outage:
+            self.last_session_keys[viewer_profile_id] = session_key
+
 
 class FakeProfileViewRepository(IProfileViewRepository):
     """A set of (viewer, viewed) pairs: a repeat `add` changes nothing, like `ON CONFLICT DO NOTHING`."""
@@ -122,6 +133,9 @@ class FakeProfileViewRepository(IProfileViewRepository):
         self.views: dict[tuple[int, int], datetime] = {}
         self.add_calls = 0
 
-    async def add(self, viewer_profile_id: int, viewed_profile_id: int, viewed_at: datetime) -> None:
+    async def add(self, viewer_profile_id: int, viewed_profile_id: int, viewed_at: datetime) -> bool:
         self.add_calls += 1
-        self.views.setdefault((viewer_profile_id, viewed_profile_id), viewed_at)
+        if (viewer_profile_id, viewed_profile_id) in self.views:
+            return False
+        self.views[(viewer_profile_id, viewed_profile_id)] = viewed_at
+        return True

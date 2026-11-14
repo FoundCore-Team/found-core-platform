@@ -9,7 +9,7 @@ from app.application.use_cases.taxonomy import (
 )
 from app.core.config import TaxonomyConfig
 from app.domain.entities import CategoryEntity, NewTagScopeEntity, RoleEntity, RoleFieldEntity, TagEntity
-from app.domain.enums import RoleFieldType, TagStatus
+from app.domain.enums import AnalyticsEvent, RoleFieldType, TagStatus
 from app.domain.exceptions import (
     CategoryNotFoundError,
     RoleNotFoundError,
@@ -17,6 +17,7 @@ from app.domain.exceptions import (
     TagTitleInvalidError,
 )
 from app.domain.services import TagTitleValidator, normalize_tag_title
+from tests.fixtures.fake_analytics import FakeAnalyticsTracker
 from tests.fixtures.fake_taxonomy import FakeTaxonomyCacheRepository, FakeTaxonomyRepository
 from tests.fixtures.fake_unit_of_work import FakeUnitOfWork
 
@@ -199,13 +200,59 @@ class TestCreateCustomTag:
         return FakeUnitOfWork()
 
     @pytest.fixture
-    def use_case(self, repo, validator, uow) -> CreateCustomTagUseCase:
-        return CreateCustomTagUseCase(repo, validator, uow)
+    def analytics(self) -> FakeAnalyticsTracker:
+        return FakeAnalyticsTracker()
+
+    @pytest.fixture
+    def use_case(self, repo, validator, uow, analytics) -> CreateCustomTagUseCase:
+        return CreateCustomTagUseCase(repo, validator, uow, analytics)
 
     async def test_new_tag_commits_exactly_once(self, use_case, uow):
         await use_case.execute("Node.js", TECH.id, ENGINEERING.id, USER_A)
 
         assert uow.commits == 1
+
+    async def test_a_new_tag_is_reported_with_its_id_and_scope_but_not_its_title(self, use_case, analytics):
+        tag = await use_case.execute("Node.js", TECH.id, ENGINEERING.id, USER_A)
+
+        [event] = analytics.events
+        assert (event.event, event.user_id) == (AnalyticsEvent.TAG_CREATED, USER_A)
+        assert event.properties == {"tag_id": tag.id, "category_id": TECH.id, "role_id": ENGINEERING.id}
+
+    async def test_a_failed_commit_is_not_reported(self, use_case, uow, analytics):
+        uow.fail_on_commit = True
+
+        with pytest.raises(RuntimeError):
+            await use_case.execute("Node.js", TECH.id, ENGINEERING.id, USER_A)
+
+        assert analytics.events == []
+
+    async def test_a_category_wide_tag_is_reported_without_a_role(self, use_case, analytics):
+        await use_case.execute("Node.js", TECH.id, None, USER_A)
+
+        assert analytics.events[0].properties["role_id"] is None
+
+    async def test_reusing_an_existing_tag_is_not_a_new_tag(self, use_case, repo, analytics):
+        repo.tags[1] = _tag(1, "Python")
+
+        await use_case.execute("python", TECH.id, ENGINEERING.id, USER_A)
+
+        assert analytics.events == []
+
+    async def test_losing_the_insert_race_is_not_a_new_tag(self, use_case, repo, analytics):
+        repo.lose_race_once = True
+
+        await use_case.execute("Node.js", TECH.id, ENGINEERING.id, USER_A)
+
+        assert analytics.events == []
+
+    async def test_a_rejected_tag_is_not_reported(self, use_case, repo, analytics):
+        repo.tags[1] = _tag(1, "Spam", TagStatus.REJECTED)
+
+        with pytest.raises(TagRejectedError):
+            await use_case.execute("spam", TECH.id, ENGINEERING.id, USER_A)
+
+        assert analytics.events == []
 
     async def test_existing_tag_still_commits_once_for_the_new_scope(self, use_case, repo, uow):
         repo.tags[1] = _tag(1, "Python")

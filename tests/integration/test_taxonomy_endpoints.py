@@ -11,6 +11,7 @@ from app.core.composition.di import get_container
 from app.core.config import settings
 from app.domain.enums import TagStatus
 from app.infrastructure.helpers import db_helper
+from app.infrastructure.providers import NoopAnalyticsTracker
 from app.main import main_app
 from tests.fixtures.auth import create_user_with_headers
 from tests.fixtures.taxonomy_data import add_tag, count_tag_scopes, count_tags
@@ -144,7 +145,7 @@ class TestReferenceEndpoints:
         async def _container_without_redis(
             session: AsyncSession = Depends(db_helper.session_getter),
         ) -> Container:
-            return Container(session=session, redis_client=dead_redis)
+            return Container(session=session, redis_client=dead_redis, analytics_tracker=NoopAnalyticsTracker())
 
         main_app.dependency_overrides[get_container] = _container_without_redis
         try:

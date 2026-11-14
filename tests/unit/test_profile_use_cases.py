@@ -24,7 +24,7 @@ from app.domain.entities import (
     RoleFieldEntity,
     TagEntity,
 )
-from app.domain.enums import EmbeddingStatus, ProfileStatus, RoleFieldType, TagStatus
+from app.domain.enums import AnalyticsEvent, EmbeddingStatus, ProfileStatus, RoleFieldType, TagStatus
 from app.domain.exceptions import (
     CategoryNotFoundError,
     InvalidExtraAttributesError,
@@ -38,6 +38,7 @@ from app.domain.exceptions import (
 )
 from app.domain.services import ExtraAttributesValidator, ProfileFormValidator
 from tests.fixtures.factories import make_user_entity
+from tests.fixtures.fake_analytics import FakeAnalyticsTracker
 from tests.fixtures.fake_embedding_queue import FakeEmbeddingQueue
 from tests.fixtures.fake_profile_embedding_repository import FakeProfileEmbeddingRepository
 from tests.fixtures.fake_profile_repository import FakeProfileRepository
@@ -128,6 +129,7 @@ class Env:
         self.embeddings = FakeProfileEmbeddingRepository()
         self.queue = FakeEmbeddingQueue()
         self.uow = FakeUnitOfWork()
+        self.analytics = FakeAnalyticsTracker()
         config = ProfileConfig()
         self.content_validator = ProfileContentValidator(
             self.taxonomy,
@@ -138,7 +140,8 @@ class Env:
                 goals_max_length=config.goals_max_length,
                 tags_min_count=config.tags_min_count,
                 tags_max_count=config.tags_max_count,
-                timezones_by_country={"DE": ["Europe/Berlin"]},
+                # A second zone and a second country, so a change of either can be saved (the update event tests).
+                timezones_by_country={"DE": ["Europe/Berlin", "Europe/Busingen"], "AT": ["Europe/Vienna"]},
             ),
             ExtraAttributesValidator(),
         )
@@ -157,6 +160,7 @@ class Env:
         )
         self.uow.commits = 0
         self.queue.enqueued.clear()
+        self.analytics.events.clear()
         return profile
 
     def create_use_case(self) -> CreateProfileUseCase:
@@ -168,22 +172,25 @@ class Env:
             self.embeddings,
             self.queue,
             self.uow,
+            self.analytics,
         )
 
     def update_use_case(self) -> UpdateProfileUseCase:
-        return UpdateProfileUseCase(self.profiles, self.content_validator, self.embeddings, self.queue, self.uow)
+        return UpdateProfileUseCase(
+            self.profiles, self.content_validator, self.embeddings, self.queue, self.uow, self.analytics
+        )
 
     def activate_use_case(self) -> ActivateProfileUseCase:
-        return ActivateProfileUseCase(self.profiles, self.users, self.uow)
+        return ActivateProfileUseCase(self.profiles, self.users, self.uow, self.analytics)
 
     def pause_use_case(self) -> PauseProfileUseCase:
-        return PauseProfileUseCase(self.profiles, self.users, self.uow)
+        return PauseProfileUseCase(self.profiles, self.users, self.uow, self.analytics)
 
     def resume_use_case(self) -> ResumeProfileUseCase:
-        return ResumeProfileUseCase(self.profiles, self.users, self.uow)
+        return ResumeProfileUseCase(self.profiles, self.users, self.uow, self.analytics)
 
     def delete_use_case(self) -> DeleteProfileUseCase:
-        return DeleteProfileUseCase(self.profiles, self.users, self.uow)
+        return DeleteProfileUseCase(self.profiles, self.users, self.uow, self.analytics)
 
 
 @pytest.fixture
@@ -709,3 +716,174 @@ class TestProfileFormConfig:
 
         assert countries
         assert all(c.timezones for c in countries)
+
+
+NO_FIELD_CHANGED = {
+    "country_changed": False,
+    "timezone_changed": False,
+    "bio_changed": False,
+    "goals_changed": False,
+    "tags_changed": False,
+    "attributes_changed": False,
+}
+
+
+class TestProfileEvents:
+    async def test_a_new_profile_is_reported_after_the_commit_without_its_texts(self, env):
+        profile = await env.create_use_case().execute(
+            await env.user(), TECH.id, ENGINEERING.id, _form(), {"grade": "junior"}
+        )
+
+        [event] = env.analytics.events
+        assert (event.event, event.user_id) == (AnalyticsEvent.PROFILE_CREATED, 1)
+        assert event.properties == {
+            "actor_profile_id": profile.id,
+            "category_id": TECH.id,
+            "role_id": ENGINEERING.id,
+            "tags_count": 5,
+            "is_first_profile": True,
+        }
+        assert TEXT not in event.properties.values()
+        assert env.uow.commits == 1
+
+    async def test_a_second_profile_is_not_the_first(self, env):
+        await env.create()
+
+        await env.create_use_case().execute(await env.user(), TECH.id, DESIGN.id, _form(), {})
+
+        assert env.analytics.events[0].properties["is_first_profile"] is False
+
+    async def test_a_profile_created_while_the_others_are_paused_is_not_the_first_either(self, env):
+        first = await env.create()
+        await env.pause_use_case().execute(await env.user(), first.id)
+        assert await env.active_profile_id() is None
+
+        await env.create_use_case().execute(await env.user(), TECH.id, DESIGN.id, _form(), {})
+
+        assert env.analytics.events[-1].properties["is_first_profile"] is False
+
+    async def test_a_failed_commit_sends_nothing(self, env):
+        profile = await env.create()
+        env.uow.fail_on_commit = True
+
+        with pytest.raises(RuntimeError):
+            await env.create_use_case().execute(await env.user(), TECH.id, DESIGN.id, _form(), {})
+        with pytest.raises(RuntimeError):
+            await env.update_use_case().execute(1, profile.id, _form(), {"grade": "junior"})
+        with pytest.raises(RuntimeError):
+            await env.pause_use_case().execute(await env.user(), profile.id)
+
+        assert env.analytics.events == []
+
+    async def test_a_duplicate_profile_sends_nothing(self, env):
+        await env.create()
+
+        with pytest.raises(ProfileAlreadyExistsError):
+            await env.create_use_case().execute(await env.user(), TECH.id, ENGINEERING.id, _form(), {"grade": "junior"})
+
+        assert env.analytics.events == []
+
+    async def test_an_invalid_profile_sends_nothing(self, env):
+        with pytest.raises(ProfileTagInvalidError):
+            await env.create_use_case().execute(
+                await env.user(), TECH.id, ENGINEERING.id, _form(tag_ids=[1, 2, 3, 4, 9]), {"grade": "junior"}
+            )
+
+        assert env.analytics.events == []
+
+    @pytest.mark.parametrize(
+        "form_overrides, attributes, flag",
+        [
+            ({"country_code": "AT", "timezone": "Europe/Vienna"}, {"grade": "junior"}, None),
+            ({"timezone": "Europe/Busingen"}, {"grade": "junior"}, "timezone_changed"),
+            ({"bio": "y" * 300}, {"grade": "junior"}, "bio_changed"),
+            ({"goals_description": "y" * 300}, {"grade": "junior"}, "goals_changed"),
+            ({"tag_ids": [1, 2, 3, 4, 6]}, {"grade": "junior"}, "tags_changed"),
+            ({}, {"grade": "senior"}, "attributes_changed"),
+        ],
+        ids=["country", "timezone", "bio", "goals", "tags", "attributes"],
+    )
+    async def test_an_update_flags_exactly_the_fields_that_changed(self, env, form_overrides, attributes, flag):
+        profile = await env.create()
+
+        await env.update_use_case().execute(1, profile.id, _form(**form_overrides), attributes)
+
+        [event] = env.analytics.events
+        assert event.event is AnalyticsEvent.PROFILE_UPDATED
+        # A new country always comes with a zone of that country, so both flags are set.
+        expected = (
+            {**NO_FIELD_CHANGED, "country_changed": True, "timezone_changed": True}
+            if flag is None
+            else {**NO_FIELD_CHANGED, flag: True}
+        )
+        assert {key: event.properties[key] for key in NO_FIELD_CHANGED} == expected
+        assert (event.properties["actor_profile_id"], event.properties["tags_count"]) == (profile.id, 5)
+
+    async def test_the_same_tags_in_another_order_are_not_a_change(self, env):
+        profile = await env.create()
+
+        await env.update_use_case().execute(1, profile.id, _form(tag_ids=[5, 4, 3, 2, 1]), {"grade": "junior"})
+
+        assert env.analytics.events[0].properties["tags_changed"] is False
+
+    async def test_an_unchanged_put_is_still_saved_and_reported_with_every_flag_false(self, env):
+        profile = await env.create()
+
+        await env.update_use_case().execute(1, profile.id, _form(), {"grade": "junior"})
+
+        [event] = env.analytics.events
+        assert {key: event.properties[key] for key in NO_FIELD_CHANGED} == NO_FIELD_CHANGED
+        assert env.uow.commits == 1
+        assert env.queue.enqueued == [profile.id]
+
+    async def test_an_update_of_a_hidden_profile_sends_nothing(self, env):
+        profile = await env.create()
+        await env.profiles.set_status(profile.id, ProfileStatus.HIDDEN_BY_ADMIN)
+
+        with pytest.raises(ProfileHiddenError):
+            await env.update_use_case().execute(1, profile.id, _form(), {"grade": "junior"})
+
+        assert env.analytics.events == []
+
+    async def test_switching_the_active_profile_is_reported_and_a_repeat_is_not(self, env):
+        await env.create()
+        second = await env.create(role=DESIGN)
+
+        await env.activate_use_case().execute(await env.user(), second.id)
+        await env.activate_use_case().execute(await env.user(), second.id)
+
+        [event] = env.analytics.events
+        assert event.event is AnalyticsEvent.PROFILE_ACTIVATED
+        assert event.properties == {"actor_profile_id": second.id, "category_id": TECH.id, "role_id": DESIGN.id}
+
+    async def test_a_pause_and_a_resume_are_reported_once_each_and_their_repeats_are_not(self, env):
+        profile = await env.create()
+
+        await env.pause_use_case().execute(await env.user(), profile.id)
+        await env.pause_use_case().execute(await env.user(), profile.id)
+        await env.resume_use_case().execute(await env.user(), profile.id)
+        await env.resume_use_case().execute(await env.user(), profile.id)
+
+        assert [event.event for event in env.analytics.events] == [
+            AnalyticsEvent.PROFILE_PAUSED,
+            AnalyticsEvent.PROFILE_RESUMED,
+        ]
+        assert all(event.properties["actor_profile_id"] == profile.id for event in env.analytics.events)
+
+    async def test_a_deleted_profile_is_reported_with_what_it_was(self, env):
+        profile = await env.create()
+
+        await env.delete_use_case().execute(await env.user(), profile.id)
+
+        [event] = env.analytics.events
+        assert event.event is AnalyticsEvent.PROFILE_DELETED
+        assert event.properties == {"actor_profile_id": profile.id, "category_id": TECH.id, "role_id": ENGINEERING.id}
+
+    async def test_somebody_elses_profile_sends_nothing(self, env):
+        profile = await env.create()
+
+        for use_case in (env.pause_use_case(), env.resume_use_case(), env.activate_use_case(), env.delete_use_case()):
+            with pytest.raises(ProfileNotFoundError):
+                await use_case.execute(await env.user(2), profile.id)
+
+        assert env.analytics.events == []

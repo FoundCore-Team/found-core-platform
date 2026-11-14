@@ -63,6 +63,7 @@ async def test_failure_after_tag_insert_leaves_no_orphan_tag(session, container,
         taxonomy_repository=repo,
         tag_title_validator=container.tag_title_validator(),
         unit_of_work=container.unit_of_work(),
+        analytics_tracker=container.analytics_tracker,
     )
 
     with pytest.raises(RuntimeError):

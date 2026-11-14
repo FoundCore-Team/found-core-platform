@@ -171,6 +171,42 @@ class EmbeddingConfig(BaseModel):
     sweep_batch_size: int = 100
 
 
+class AnalyticsConfig(BaseModel):
+    # Plain BaseModel for the same reason as RunConfig.
+    # stub writes events to the log (refused in prod); disabled drops them (allowed in prod, the setting there until
+    # the terms of use and the legal review are done); posthog sends them to PostHog.
+    provider: Literal["stub", "posthog", "disabled"] = "stub"
+    # Ingestion host of PostHog Cloud EU (`eu.posthog.com` is the web interface, not this one).
+    host: str = "https://eu.i.posthog.com"
+    # The project's public token (`phc_...`): it can only send events. Dev and prod are different PostHog projects.
+    project_api_key: SecretStr | None = None
+    # The SDK's own defaults (posthog 7.81.1): a full queue drops new events instead of blocking the request.
+    max_queue_size: int = 10_000
+    flush_at: int = 100
+    flush_interval_seconds: float = 5.0
+    request_timeout_seconds: float = 5.0
+    # Well below the 10 s that `docker stop` waits before it kills the process.
+    flush_timeout_seconds: float = 3.0
+
+    @model_validator(mode="after")
+    def _check_consistency(self) -> "AnalyticsConfig":
+        if self.provider == "posthog" and (
+            self.project_api_key is None or not self.project_api_key.get_secret_value().strip()
+        ):
+            # The SDK silently drops every event when the key is empty, so a missing key must fail at startup.
+            raise ValueError("APP_CONFIG__ANALYTICS__PROJECT_API_KEY is required for the posthog provider")
+        for name in (
+            "max_queue_size",
+            "flush_at",
+            "flush_interval_seconds",
+            "request_timeout_seconds",
+            "flush_timeout_seconds",
+        ):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"analytics {name} must be positive")
+        return self
+
+
 class FeedConfig(BaseModel):
     # Plain BaseModel for the same reason as RunConfig.
     weight_semantic: float = 0.4
@@ -296,6 +332,7 @@ class Settings(BaseSettings):
     worker: WorkerConfig
     embedding: EmbeddingConfig = EmbeddingConfig()
     notification: NotificationConfig = NotificationConfig()
+    analytics: AnalyticsConfig = AnalyticsConfig()
 
     @staticmethod
     def _redis_location(url: str) -> tuple[str | None, int, str]:
@@ -327,6 +364,10 @@ class Settings(BaseSettings):
         elif urlsplit(self.notification.mini_app_url).scheme != "https":
             # Telegram refuses a web_app button that is not https, which would fail every notification.
             problems.append("APP_CONFIG__NOTIFICATION__MINI_APP_URL must be an https URL")
+        if self.analytics.provider == "stub":
+            problems.append("APP_CONFIG__ANALYTICS__PROVIDER must not be stub (use disabled or posthog)")
+        elif self.analytics.provider == "posthog" and urlsplit(self.analytics.host).scheme != "https":
+            problems.append("APP_CONFIG__ANALYTICS__HOST must be an https URL")
         if self._redis_location(self.worker.broker_url) == self._redis_location(str(self.redis.url)):
             problems.append("APP_CONFIG__WORKER__BROKER_URL must use a different Redis DB than APP_CONFIG__REDIS__URL")
         if problems:

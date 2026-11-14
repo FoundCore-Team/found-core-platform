@@ -11,7 +11,7 @@ from app.domain.entities import (
     TimezoneEntity,
     UserEntity,
 )
-from app.domain.enums import ProfileStatus
+from app.domain.enums import AnalyticsEvent, ProfileStatus
 from app.domain.exceptions import (
     CategoryNotFoundError,
     ProfileAlreadyExistsError,
@@ -21,6 +21,7 @@ from app.domain.exceptions import (
     RoleNotFoundError,
 )
 from app.domain.interfaces import (
+    IAnalyticsTracker,
     IEmbeddingJobQueue,
     IProfileEmbeddingRepository,
     IProfileRepository,
@@ -28,6 +29,12 @@ from app.domain.interfaces import (
     IUnitOfWork,
     IUserRepository,
 )
+from app.domain.interfaces.analytics import AnalyticsValue
+
+
+def _profile_event_properties(profile: ProfileEntity) -> dict[str, AnalyticsValue]:
+    """What every profile event carries: the profile itself, never its texts or tag titles."""
+    return {"actor_profile_id": profile.id, "category_id": profile.category_id, "role_id": profile.role_id}
 
 
 class GetProfileFormConfigUseCase:
@@ -83,6 +90,7 @@ class CreateProfileUseCase:
         profile_embedding_repository: IProfileEmbeddingRepository,
         embedding_queue: IEmbeddingJobQueue,
         unit_of_work: IUnitOfWork,
+        analytics_tracker: IAnalyticsTracker,
     ) -> None:
         self._profile_repository = profile_repository
         self._user_repository = user_repository
@@ -91,6 +99,7 @@ class CreateProfileUseCase:
         self._profile_embedding_repository = profile_embedding_repository
         self._embedding_queue = embedding_queue
         self._unit_of_work = unit_of_work
+        self._analytics_tracker = analytics_tracker
 
     async def execute(
         self,
@@ -146,10 +155,22 @@ class CreateProfileUseCase:
             await self._user_repository.set_active_profile(user.id, profile.id)
 
         await self._profile_embedding_repository.mark_pending(profile.id, profile.updated_at)
+        # Counted, not taken from `active_profile_id is None`: a user whose profiles are all paused has no active
+        # profile either, and their new one is not the first.
+        is_first_profile = len(await self._profile_repository.list_by_user_id(user.id)) == 1
 
         await self._unit_of_work.commit()
         # After the commit, so the worker finds the profile. Never raises: a missed job is picked up by the sweep.
         await self._embedding_queue.enqueue(profile.id)
+        self._analytics_tracker.track(
+            AnalyticsEvent.PROFILE_CREATED,
+            user.id,
+            {
+                **_profile_event_properties(profile),
+                "tags_count": len(profile.tags),
+                "is_first_profile": is_first_profile,
+            },
+        )
         return profile
 
 
@@ -161,12 +182,14 @@ class UpdateProfileUseCase:
         profile_embedding_repository: IProfileEmbeddingRepository,
         embedding_queue: IEmbeddingJobQueue,
         unit_of_work: IUnitOfWork,
+        analytics_tracker: IAnalyticsTracker,
     ) -> None:
         self._profile_repository = profile_repository
         self._profile_content_validator = profile_content_validator
         self._profile_embedding_repository = profile_embedding_repository
         self._embedding_queue = embedding_queue
         self._unit_of_work = unit_of_work
+        self._analytics_tracker = analytics_tracker
 
     async def execute(
         self,
@@ -185,6 +208,18 @@ class UpdateProfileUseCase:
             profile.category_id, profile.role_id, form, extra_attributes
         )
 
+        # Compared before the fields below are overwritten: PUT is a full replace and always saves, so the event
+        # tells which fields really changed (the values themselves never leave the backend). Tags compare as a set,
+        # their order means nothing.
+        changed = {
+            "country_changed": form.country_code != profile.country_code,
+            "timezone_changed": form.timezone != profile.timezone,
+            "bio_changed": form.bio != profile.bio,
+            "goals_changed": form.goals_description != profile.goals_description,
+            "tags_changed": set(form.tag_ids) != {tag.id for tag in profile.tags},
+            "attributes_changed": extra_attributes != profile.extra_attributes,
+        }
+
         profile.country_code = form.country_code
         profile.timezone = form.timezone
         profile.bio = form.bio
@@ -197,6 +232,11 @@ class UpdateProfileUseCase:
 
         await self._unit_of_work.commit()
         await self._embedding_queue.enqueue(updated.id)
+        self._analytics_tracker.track(
+            AnalyticsEvent.PROFILE_UPDATED,
+            user_id,
+            {**_profile_event_properties(updated), "tags_count": len(updated.tags), **changed},
+        )
         return updated
 
 
@@ -206,10 +246,12 @@ class ActivateProfileUseCase:
         profile_repository: IProfileRepository,
         user_repository: IUserRepository,
         unit_of_work: IUnitOfWork,
+        analytics_tracker: IAnalyticsTracker,
     ) -> None:
         self._profile_repository = profile_repository
         self._user_repository = user_repository
         self._unit_of_work = unit_of_work
+        self._analytics_tracker = analytics_tracker
 
     async def execute(self, user: UserEntity, profile_id: int) -> ProfileEntity:
         profile = await self._profile_repository.get_by_id(profile_id)
@@ -224,6 +266,10 @@ class ActivateProfileUseCase:
             user.active_profile_id = profile.id
             await self._user_repository.set_active_profile(user.id, profile.id)
             await self._unit_of_work.commit()
+            # Only a real switch; activating the profile that already is the active one is a silent repeat.
+            self._analytics_tracker.track(
+                AnalyticsEvent.PROFILE_ACTIVATED, user.id, _profile_event_properties(profile)
+            )
         return profile
 
 
@@ -233,10 +279,12 @@ class PauseProfileUseCase:
         profile_repository: IProfileRepository,
         user_repository: IUserRepository,
         unit_of_work: IUnitOfWork,
+        analytics_tracker: IAnalyticsTracker,
     ) -> None:
         self._profile_repository = profile_repository
         self._user_repository = user_repository
         self._unit_of_work = unit_of_work
+        self._analytics_tracker = analytics_tracker
 
     async def execute(self, user: UserEntity, profile_id: int) -> ProfileEntity:
         profile = await self._profile_repository.get_by_id(profile_id)
@@ -260,6 +308,7 @@ class PauseProfileUseCase:
             await self._user_repository.set_active_profile(user.id, user.active_profile_id)
 
         await self._unit_of_work.commit()
+        self._analytics_tracker.track(AnalyticsEvent.PROFILE_PAUSED, user.id, _profile_event_properties(profile))
         return profile
 
 
@@ -269,10 +318,12 @@ class ResumeProfileUseCase:
         profile_repository: IProfileRepository,
         user_repository: IUserRepository,
         unit_of_work: IUnitOfWork,
+        analytics_tracker: IAnalyticsTracker,
     ) -> None:
         self._profile_repository = profile_repository
         self._user_repository = user_repository
         self._unit_of_work = unit_of_work
+        self._analytics_tracker = analytics_tracker
 
     async def execute(self, user: UserEntity, profile_id: int) -> ProfileEntity:
         profile = await self._profile_repository.get_by_id(profile_id)
@@ -293,6 +344,7 @@ class ResumeProfileUseCase:
             await self._user_repository.set_active_profile(user.id, profile.id)
 
         await self._unit_of_work.commit()
+        self._analytics_tracker.track(AnalyticsEvent.PROFILE_RESUMED, user.id, _profile_event_properties(profile))
         return profile
 
 
@@ -302,10 +354,12 @@ class DeleteProfileUseCase:
         profile_repository: IProfileRepository,
         user_repository: IUserRepository,
         unit_of_work: IUnitOfWork,
+        analytics_tracker: IAnalyticsTracker,
     ) -> None:
         self._profile_repository = profile_repository
         self._user_repository = user_repository
         self._unit_of_work = unit_of_work
+        self._analytics_tracker = analytics_tracker
 
     async def execute(self, user: UserEntity, profile_id: int) -> None:
         profile = await self._profile_repository.get_by_id(profile_id)
@@ -324,3 +378,5 @@ class DeleteProfileUseCase:
             await self._user_repository.set_active_profile(user.id, user.active_profile_id)
 
         await self._unit_of_work.commit()
+        # From the profile read before the delete: the row is gone now.
+        self._analytics_tracker.track(AnalyticsEvent.PROFILE_DELETED, user.id, _profile_event_properties(profile))

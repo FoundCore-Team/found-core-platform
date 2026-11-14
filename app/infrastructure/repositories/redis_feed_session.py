@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import datetime
 
 from redis.asyncio import Redis
@@ -12,6 +13,9 @@ from app.domain.interfaces import IFeedSessionRepository
 logger = logging.getLogger(__name__)
 
 _KEY_TEMPLATE = "feed:session:{session_key}"
+_LAST_SESSION_KEY_TEMPLATE = "feed:last:{viewer_profile_id}"
+# A session key is a sha256 hex digest; anything else stored under the pointer is unreadable, so a miss.
+_SESSION_KEY_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
 def _require(condition: bool) -> None:
@@ -126,3 +130,31 @@ class RedisFeedSessionRepository(IFeedSessionRepository):
         except RedisError:
             self._unavailable = True
             logger.warning("Redis unavailable, feed session write skipped for key %s", key, exc_info=True)
+
+    async def get_last_session_key(self, viewer_profile_id: int) -> str | None:
+        if self._unavailable:
+            return None
+        key = _LAST_SESSION_KEY_TEMPLATE.format(viewer_profile_id=viewer_profile_id)
+        try:
+            raw = await self._redis.get(key)
+        except RedisError:
+            self._unavailable = True
+            logger.warning("Redis unavailable, last feed session read skipped for key %s", key, exc_info=True)
+            return None
+        if raw is None:
+            return None
+        if type(raw) is not str or not _SESSION_KEY_PATTERN.fullmatch(raw):
+            logger.warning("Discarding unreadable last feed session pointer for key %s", key)
+            return None
+        return raw
+
+    async def set_last_session_key(self, viewer_profile_id: int, session_key: str) -> None:
+        if self._unavailable:
+            return
+        key = _LAST_SESSION_KEY_TEMPLATE.format(viewer_profile_id=viewer_profile_id)
+        try:
+            # The same lifetime as a session: a pointer that outlives its session would only ever lead to a miss.
+            await self._redis.set(key, session_key, ex=self._ttl_seconds)
+        except RedisError:
+            self._unavailable = True
+            logger.warning("Redis unavailable, last feed session write skipped for key %s", key, exc_info=True)

@@ -10,6 +10,7 @@ from app.application.use_cases import BanUserUseCase
 from app.core.composition.container import Container
 from app.domain.exceptions import UserBannedError
 from app.infrastructure.helpers import db_helper
+from app.infrastructure.providers import NoopAnalyticsTracker
 from app.infrastructure.repositories import SqlAlchemyAdminActionRepository
 from tests.fixtures.auth import create_user_with_headers
 from tests.fixtures.db_ops import set_user_admin, set_user_banned
@@ -84,7 +85,7 @@ async def test_a_ban_and_a_grant_of_the_admin_role_racing_never_leave_a_banned_a
 
     async def grant(telegram_id: int):
         async with db_helper.session_factory() as s:
-            container = Container(session=s, redis_client=redis_client)
+            container = Container(session=s, redis_client=redis_client, analytics_tracker=NoopAnalyticsTracker())
             return await container.set_admin_use_case().execute(telegram_id, True, "race")
 
     for round_number in range(12):
